@@ -239,28 +239,344 @@ const WD=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 /* name, muscle, equipment, rep low, rep high, weight step, bodyweight */
 const LIB=[
-['Bench Press (Barbell)','chest','Barbell',6,10,5],['Bench Press (Wide Grip)','chest','Barbell',8,12,5],['Incline Dumbbell Press','chest','Dumbbell',8,12,5],['Machine Chest Press','chest','Machine',8,12,5],['Cable Fly','chest','Cable',12,20,5],['Push-up','chest','Bodyweight',10,25,5,1],
-['Pullup (Parallel Grip)','back','Bodyweight',6,12,5,1],['Pullup (Wide Grip)','back','Bodyweight',6,12,5,1],['Lat Pulldown (Cable)','back','Cable',8,12,5],['Barbell Row','back','Barbell',6,10,5],['Chest-Supported Row (Dumbbell)','back','Dumbbell',8,12,5],['Seated Cable Row','back','Cable',10,15,5],['Straight-Arm Pulldown','back','Cable',12,20,5],
-['Dumbbell Bent Over Shrug','traps','Dumbbell',12,20,5],['Barbell Shrug','traps','Barbell',10,15,10],
-['Overhead Press (Barbell)','shoulders','Barbell',6,10,5],['Dumbbell Shoulder Press','shoulders','Dumbbell',8,12,5],['Dumbbell Lateral Raise','shoulders','Dumbbell',12,20,2.5],['Cable Lateral Raise','shoulders','Cable',12,20,2.5],['Reverse Pec Deck','shoulders','Machine',12,20,5],['Face Pull','shoulders','Cable',12,20,5],
-['Dumbbell Curl (Alternating)','biceps','Dumbbell',8,14,5],['Concentration Curl','biceps','Dumbbell',10,16,5],['Barbell Curl','biceps','Barbell',8,12,5],['Incline Dumbbell Curl','biceps','Dumbbell',10,15,5],['Hammer Curl','biceps','Dumbbell',10,15,5],['Cable Curl','biceps','Cable',10,15,5],
-['Cable Triceps Pushdown (Bar)','triceps','Cable',10,15,5],['Overhead Cable Triceps Extension','triceps','Cable',10,15,5],['Skullcrusher (EZ Bar)','triceps','Barbell',8,12,5],['Dip','triceps','Bodyweight',6,12,5,1],['Close-Grip Bench Press','triceps','Barbell',6,10,5],
-['Wrist Curl','forearms','Dumbbell',12,20,2.5],
-['Back Squat','quads','Barbell',6,10,10],['Leg Press','quads','Machine',10,15,10],['Hack Squat','quads','Machine',8,12,10],['Leg Extension','quads','Machine',12,20,5],['Bulgarian Split Squat (Dumbbell)','quads','Dumbbell',8,12,5],
-['Romanian Deadlift','hamstrings','Barbell',6,10,10],['Lying Leg Curl','hamstrings','Machine',10,15,5],['Seated Leg Curl','hamstrings','Machine',10,15,5],
-['Hip Thrust (Barbell)','glutes','Barbell',8,12,10],['Cable Pull-Through','glutes','Cable',10,15,5],
-['Standing Calf Raise','calves','Machine',10,20,10],['Seated Calf Raise','calves','Machine',12,20,5],
-['Cable Crunch','abs','Cable',10,15,5],['Machine Crunch','abs','Machine',10,15,5]];
+["Arnold Press", "shoulders", "Dumbbell", 8, 12, 5],
+["Assisted Dip", "triceps", "Assisted machine", 8, 12, 5, 2],
+["Assisted Pullup (Normal Grip)", "back", "Assisted machine", 8, 12, 5, 2],
+["Assisted Pullup (Parallel Grip)", "back", "Assisted machine", 8, 12, 5, 2],
+["Assisted Pullup (Underhand Grip)", "back", "Assisted machine", 8, 12, 5, 2],
+["Assisted Pullup (Wide Grip)", "back", "Assisted machine", 8, 12, 5, 2],
+["Back Extension", "back", "Bodyweight + weight", 10, 15, 5, 1],
+["Back Extension (Flexion)", "back", "Bodyweight + weight", 10, 15, 5, 1],
+["Back Raise (45 degree)", "hamstrings", "Bodyweight", 10, 15, 5, 1],
+["Back Raise (Glute Ham Deck)", "hamstrings", "Bodyweight", 10, 15, 5, 1],
+["Barbell Bent Over Row", "back", "Barbell", 6, 10, 5, 0, "barbell-row"],
+["Barbell Bent Over Shrug (Shoulders)", "shoulders", "Barbell", 10, 15, 5],
+["Barbell Bent Over Shrug (Traps)", "traps", "Barbell", 10, 15, 5],
+["Barbell Curl (Narrow Grip)", "biceps", "Barbell", 10, 15, 5],
+["Barbell Curl (Normal Grip)", "biceps", "Barbell", 8, 12, 5, 0, "barbell-curl"],
+["Barbell Facepull", "shoulders", "Barbell", 12, 20, 5],
+["Barbell Flexion Row", "back", "Barbell", 6, 10, 5],
+["Barbell Front Raise", "shoulders", "Barbell", 12, 20, 5],
+["Barbell Front Raise (EZ Bar, Underhand)", "shoulders", "Barbell", 12, 20, 5],
+["Barbell Front Raise (Overhand)", "shoulders", "Barbell", 12, 20, 5],
+["Barbell Good Morning (Cambered Bar)", "hamstrings", "Barbell", 6, 10, 10],
+["Barbell Good Morning (High Bar)", "hamstrings", "Barbell", 6, 10, 10],
+["Barbell Good Morning (Low Bar)", "hamstrings", "Barbell", 6, 10, 10],
+["Barbell Good Morning (Safety Bar)", "hamstrings", "Barbell", 6, 10, 10],
+["Barbell Hip Thrust", "glutes", "Barbell", 8, 12, 10, 0, "hip-thrust-barbell"],
+["Barbell Overhead Triceps Extension", "triceps", "Barbell", 10, 15, 5],
+["Barbell Overhead Triceps Extension (Seated)", "triceps", "Barbell", 10, 15, 5],
+["Barbell Pullover", "back", "Barbell", 10, 15, 5],
+["Barbell Row to Chest", "back", "Barbell", 6, 10, 5],
+["Barbell Shoulder Press (Seated)", "shoulders", "Barbell", 6, 10, 5],
+["Barbell Shoulder Press (Standing)", "shoulders", "Barbell", 6, 10, 5, 0, "overhead-press-barbell"],
+["Barbell Shrug (Shoulders)", "shoulders", "Barbell", 10, 15, 5],
+["Barbell Shrug (Traps)", "traps", "Barbell", 10, 15, 10, 0, "barbell-shrug"],
+["Barbell Skullcrusher", "triceps", "Barbell", 10, 15, 5],
+["Barbell Split Squat", "quads", "Barbell", 6, 10, 10],
+["Barbell Squat (Cambered Bar)", "quads", "Barbell", 6, 10, 10],
+["Barbell Squat (Close Stance, Feet Forward)", "quads", "Barbell", 6, 10, 10],
+["Barbell Squat (High Bar)", "quads", "Barbell", 6, 10, 10, 0, "back-squat"],
+["Barbell Squat (Narrow Stance)", "quads", "Barbell", 6, 10, 10],
+["Barbell Squat (Safety Bar)", "quads", "Barbell", 6, 10, 10],
+["Barbell Squat (Sumo Stance)", "glutes", "Barbell", 6, 10, 10],
+["Barbell Standing Wrist Curl", "forearms", "Barbell", 12, 20, 5],
+["Barbell Upright Row", "shoulders", "Barbell", 10, 15, 5],
+["Bayesian Curl", "biceps", "Cable", 10, 15, 5],
+["Belt Squat", "quads", "Machine", 8, 12, 10],
+["Belt Squat (Wide Stance)", "glutes", "Machine", 8, 12, 10],
+["Belt Squat Calves", "calves", "Machine", 12, 20, 10],
+["Bench Press (Cambered Bar)", "chest", "Barbell", 6, 10, 5],
+["Bench Press (Close Grip)", "triceps", "Barbell", 6, 10, 5, 0, "close-grip-bench-press"],
+["Bench Press (Decline)", "chest", "Barbell", 6, 10, 5],
+["Bench Press (Incline, Medium Grip)", "chest", "Barbell", 6, 10, 5],
+["Bench Press (Incline, Narrow Grip)", "chest", "Barbell", 6, 10, 5],
+["Bench Press (Incline, Wide Grip)", "chest", "Barbell", 6, 10, 5],
+["Bench Press (Medium Grip)", "chest", "Barbell", 6, 10, 5, 0, "bench-press-barbell"],
+["Bench Press (Narrow Grip)", "chest", "Barbell", 6, 10, 5],
+["Bench Press (Wide Grip)", "chest", "Barbell", 8, 12, 5],
+["Bulgarian Split Squat", "quads", "Smith Machine", 8, 12, 5],
+["Bulgarian Split Squat (Glute-Focused)", "glutes", "Dumbbell", 8, 12, 5],
+["Bulgarian Split Squat (Quad-Focused)", "quads", "Dumbbell", 8, 12, 5, 0, "bulgarian-split-squat-dumbbell"],
+["Cable Bent Over Shrug (Shoulders)", "shoulders", "Cable", 10, 15, 5],
+["Cable Bent Over Shrug (Traps)", "traps", "Cable", 10, 15, 5],
+["Cable Chest Press", "chest", "Cable", 8, 12, 5],
+["Cable Cross Body Bent Lateral Raise", "shoulders", "Cable", 12, 20, 2.5],
+["Cable Cross Body Lateral Raise", "shoulders", "Cable", 12, 20, 2.5],
+["Cable Curl", "biceps", "Cable", 10, 15, 5],
+["Cable Curl (EZ Bar)", "biceps", "Cable", 10, 15, 5],
+["Cable Curl (EZ Bar, Wide Grip)", "biceps", "Cable", 10, 15, 5],
+["Cable Curl (Single-Arm)", "biceps", "Cable", 10, 15, 5],
+["Cable Flexion Row", "back", "Cable", 8, 12, 5],
+["Cable Flye", "chest", "Cable", 12, 20, 5, 0, "cable-fly"],
+["Cable Flye (Bent Over)", "chest", "Cable", 10, 15, 5],
+["Cable Flye (High)", "chest", "Cable", 10, 15, 5],
+["Cable Flye (Seated)", "chest", "Cable", 10, 15, 5],
+["Cable Flye (Underhand)", "chest", "Cable", 10, 15, 5],
+["Cable Front Raise (Overhand)", "shoulders", "Cable", 12, 20, 2.5],
+["Cable Front Raise (Underhand)", "shoulders", "Cable", 12, 20, 2.5],
+["Cable Hammer Curl (Rope)", "biceps", "Cable", 10, 15, 5],
+["Cable Kickback", "glutes", "Cable", 10, 15, 5],
+["Cable Lateral Raise (Single-Arm)", "shoulders", "Cable", 12, 20, 2.5, 0, "cable-lateral-raise"],
+["Cable Leaning Lateral Raise", "shoulders", "Cable", 12, 20, 2.5],
+["Cable Overhead Triceps Extension", "triceps", "Cable", 10, 15, 5, 0, "overhead-cable-triceps-extension"],
+["Cable Overhead Triceps Extension (Rope)", "triceps", "Cable", 10, 15, 5],
+["Cable Pull Through", "glutes", "Cable", 10, 15, 5, 0, "cable-pull-through"],
+["Cable Pullover", "back", "Cable", 10, 15, 5],
+["Cable Rope Crunch", "abs", "Cable", 10, 15, 5, 0, "cable-crunch"],
+["Cable Rope Facepull", "shoulders", "Cable", 12, 20, 5, 0, "face-pull"],
+["Cable Rope Facepull (Kneeling)", "shoulders", "Cable", 12, 20, 5],
+["Cable Rope Twist Curl", "biceps", "Cable", 10, 15, 5],
+["Cable Shrug (Shoulders)", "shoulders", "Cable", 10, 15, 5],
+["Cable Shrug (Traps)", "traps", "Cable", 10, 15, 5],
+["Cable Side Shrug (Shoulders)", "shoulders", "Cable", 10, 15, 5],
+["Cable Side Shrug (Traps)", "traps", "Cable", 10, 15, 5],
+["Cable Single Arm Rear Delt Raise", "shoulders", "Cable", 12, 20, 2.5],
+["Cable Single Arm Side Shrug (Shoulders)", "shoulders", "Cable", 10, 15, 5],
+["Cable Single Arm Side Shrug (Traps)", "traps", "Cable", 10, 15, 5],
+["Cable Tricep Kickback", "triceps", "Cable", 10, 15, 5],
+["Cable Triceps Pushdown (Bar)", "triceps", "Cable", 10, 15, 5],
+["Cable Triceps Pushdown (Rope)", "triceps", "Cable", 10, 15, 5],
+["Cable Triceps Pushdown (Single-Arm)", "triceps", "Cable", 10, 15, 5],
+["Cable Upright Row", "shoulders", "Cable", 10, 15, 5],
+["Cable Wrist Curl", "forearms", "Cable", 12, 20, 2.5],
+["Calf Machine", "calves", "Machine", 12, 20, 10],
+["Cambered Bar Row", "back", "Barbell", 6, 10, 5],
+["Chest Supported Row", "back", "Machine", 8, 12, 5],
+["Concentration Curl", "biceps", "Dumbbell", 10, 16, 5],
+["Deadlift (Back)", "back", "Barbell", 6, 10, 10],
+["Deadlift (Deficit 25's)", "glutes", "Barbell", 6, 10, 10],
+["Deadlift (Deficit)", "glutes", "Barbell", 6, 10, 10],
+["Deadlift (Flexion)", "back", "Barbell", 6, 10, 10],
+["Deadlift (Glutes)", "glutes", "Barbell", 6, 10, 10],
+["Deadlift (Sumo Stance)", "glutes", "Barbell", 6, 10, 10],
+["Deadlift (Sumo Stance, Deficit)", "glutes", "Barbell", 6, 10, 10],
+["Decline Dumbbell Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Dip (Chest-Focused)", "chest", "Bodyweight", 6, 12, 5, 1],
+["Dip (Triceps-Focused)", "triceps", "Bodyweight", 6, 12, 5, 1, "dip"],
+["Dip (Weighted, Chest-Focused)", "chest", "Bodyweight + weight", 8, 12, 5, 1],
+["Dip (Weighted, Triceps-Focused)", "triceps", "Bodyweight + weight", 8, 12, 5, 1],
+["Dip Machine", "triceps", "Machine", 8, 12, 5],
+["Donkey Calf Raise", "calves", "Machine", 12, 20, 10],
+["Dual Cable Pullover", "back", "Cable", 10, 15, 5],
+["Dumbbell Bench Wrist Curl", "forearms", "Dumbbell", 12, 20, 2.5, 0, "wrist-curl"],
+["Dumbbell Bent Lateral Raise", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Bent Over Shrug (Shoulders)", "shoulders", "Dumbbell", 10, 15, 5],
+["Dumbbell Bent Over Shrug (Traps)", "traps", "Dumbbell", 12, 20, 5, 0, "dumbbell-bent-over-shrug"],
+["Dumbbell Curl (2-Arm)", "biceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Curl (Alternating)", "biceps", "Dumbbell", 8, 14, 5],
+["Dumbbell Curl (Incline)", "biceps", "Dumbbell", 10, 15, 5, 0, "incline-dumbbell-curl"],
+["Dumbbell Facepull", "shoulders", "Dumbbell", 12, 20, 5],
+["Dumbbell Facepull (Incline)", "shoulders", "Dumbbell", 12, 20, 5],
+["Dumbbell Flexion Row", "back", "Dumbbell", 8, 12, 5],
+["Dumbbell Flye (Flat)", "chest", "Dumbbell", 10, 15, 5],
+["Dumbbell Flye (Incline)", "chest", "Dumbbell", 10, 15, 5],
+["Dumbbell Front Raise", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Front Squat", "quads", "Dumbbell", 8, 12, 5],
+["Dumbbell Hip Thrust (Single Leg)", "glutes", "Dumbbell", 8, 12, 5],
+["Dumbbell Lateral Raise", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Lateral Raise (Incline)", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Lateral Raise (Seated)", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Lateral Raise (Super ROM)", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Lateral Raise (Thumbs Down)", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Lateral Raise (Top Hold)", "shoulders", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Leaning Shrug (Shoulders)", "shoulders", "Dumbbell", 10, 15, 5],
+["Dumbbell Leaning Shrug (Traps)", "traps", "Dumbbell", 10, 15, 5],
+["Dumbbell Overhead Extension", "triceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Overhead Extension (Single-Arm)", "triceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Preacher Curl (Single-Arm)", "biceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Press (Flat)", "chest", "Dumbbell", 8, 12, 5],
+["Dumbbell Press (High Incline, Chest)", "chest", "Dumbbell", 8, 12, 5],
+["Dumbbell Press (High Incline, Shoulders)", "shoulders", "Dumbbell", 8, 12, 5],
+["Dumbbell Press (Low Incline)", "chest", "Dumbbell", 8, 12, 5],
+["Dumbbell Press (Medium Incline)", "chest", "Dumbbell", 8, 12, 5, 0, "incline-dumbbell-press"],
+["Dumbbell Press Flye (Flat)", "chest", "Dumbbell", 10, 15, 5],
+["Dumbbell Press Flye (Incline)", "chest", "Dumbbell", 10, 15, 5],
+["Dumbbell Pullover", "back", "Dumbbell", 10, 15, 5],
+["Dumbbell Row (2-Arm)", "back", "Dumbbell", 8, 12, 5],
+["Dumbbell Row (2-Arm, Incline)", "back", "Dumbbell", 8, 12, 5, 0, "chest-supported-row-dumbbell"],
+["Dumbbell Row (Single-Arm, Supported)", "back", "Dumbbell", 8, 12, 5],
+["Dumbbell Row to Hips", "back", "Dumbbell", 8, 12, 5],
+["Dumbbell Shoulder Press (Seated)", "shoulders", "Dumbbell", 8, 12, 5, 0, "dumbbell-shoulder-press"],
+["Dumbbell Shoulder Press (Standing)", "shoulders", "Dumbbell", 8, 12, 5],
+["Dumbbell Shrug (Seated, Shoulders)", "shoulders", "Dumbbell", 10, 15, 5],
+["Dumbbell Shrug (Seated, Traps)", "traps", "Dumbbell", 10, 15, 5],
+["Dumbbell Shrug (Shoulders)", "shoulders", "Dumbbell", 10, 15, 5],
+["Dumbbell Shrug (Traps)", "traps", "Dumbbell", 10, 15, 5],
+["Dumbbell Skullcrusher", "triceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Spider Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Split Squat", "glutes", "Dumbbell", 8, 12, 5],
+["Dumbbell Standing Wrist Curl", "forearms", "Dumbbell", 12, 20, 2.5],
+["Dumbbell Stiff Legged Deadlift", "hamstrings", "Dumbbell", 8, 12, 5],
+["Dumbbell Twist Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Dumbbell Upright Row", "shoulders", "Dumbbell", 10, 15, 5],
+["EZ Bar Curl (Narrow Grip)", "biceps", "Barbell", 10, 15, 5],
+["EZ Bar Curl (Normal Grip)", "biceps", "Barbell", 10, 15, 5],
+["EZ Bar Curl (Wide Grip)", "biceps", "Barbell", 10, 15, 5],
+["EZ Bar Overhead Triceps Extension", "triceps", "Barbell", 10, 15, 5],
+["EZ Bar Overhead Triceps Extension (Seated)", "triceps", "Barbell", 10, 15, 5],
+["EZ Bar Preacher Curl", "biceps", "Barbell", 10, 15, 5],
+["EZ Bar Row (Underhand)", "back", "Barbell", 6, 10, 5],
+["EZ Bar Skullcrusher", "triceps", "Barbell", 8, 12, 5, 0, "skullcrusher-ez-bar"],
+["EZ Bar Spider Curl", "biceps", "Barbell", 10, 15, 5],
+["Freemotion Curl (Facing Away)", "biceps", "Freemotion", 10, 15, 5],
+["Freemotion Curl (Facing Machine)", "biceps", "Freemotion", 10, 15, 5],
+["Freemotion Curl (Single-Arm)", "biceps", "Freemotion", 10, 15, 5],
+["Freemotion Rear Delt Flyes", "shoulders", "Freemotion", 12, 20, 2.5],
+["Freemotion Rear Delt Flyes (Paused)", "shoulders", "Freemotion", 12, 20, 2.5],
+["Freemotion Y-Raises", "shoulders", "Freemotion", 12, 20, 2.5],
+["Freemotion Y-Raises (Paused)", "shoulders", "Freemotion", 12, 20, 2.5],
+["Front Foot Elevated Smith Lunge", "glutes", "Smith Machine", 8, 12, 5],
+["Front Squat", "quads", "Barbell", 6, 10, 10],
+["Front Squat (Cross Grip)", "quads", "Barbell", 6, 10, 10],
+["Goblet Squat", "quads", "Dumbbell", 8, 12, 5],
+["Grip Roller", "forearms", "Machine", 12, 20, 5],
+["Hack Squat", "quads", "Machine", 8, 12, 10],
+["Hammer Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Hammer Machine Chest Press (Flat)", "chest", "Machine", 8, 12, 5],
+["Hammer Machine Chest Press (Incline)", "chest", "Machine", 8, 12, 5],
+["Hammer Machine Row (High)", "back", "Machine", 8, 12, 5],
+["Hammer Machine Row (Low)", "back", "Machine", 8, 12, 5],
+["Hammer Preacher Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Hanging Knee Raise", "abs", "Bodyweight", 12, 20, 5, 1],
+["Hanging Straight Leg Raise", "abs", "Bodyweight", 12, 20, 5, 1],
+["Hip Abduction Machine", "glutes", "Machine", 12, 20, 5],
+["Hip Adduction", "quads", "Machine", 12, 20, 5],
+["Inverted Row", "back", "Bodyweight", 6, 12, 5, 1],
+["Inverted Skullcrusher", "triceps", "Bodyweight", 10, 15, 5, 1],
+["JM Press", "triceps", "Barbell", 10, 15, 5],
+["Landmine Row", "back", "Barbell", 6, 10, 5],
+["Leg Extension", "quads", "Machine", 12, 20, 5],
+["Leg Press", "quads", "Machine", 10, 15, 10],
+["Leg Press Calves", "calves", "Machine", 12, 20, 10],
+["Lying Biceps Dumbbell Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Lying Cable Curl", "biceps", "Cable", 10, 15, 5],
+["Lying Dumbbell Curl", "biceps", "Dumbbell", 10, 15, 5],
+["Lying Leg Curl", "hamstrings", "Machine", 10, 15, 5],
+["Machine Chest Press", "chest", "Machine", 8, 12, 5],
+["Machine Chest Press (Incline)", "chest", "Machine", 8, 12, 5],
+["Machine Chest Supported Row", "back", "Machine", 8, 12, 5],
+["Machine Crunch", "abs", "Machine", 10, 15, 5],
+["Machine Flye", "chest", "Machine", 10, 15, 5],
+["Machine Glute Kickback", "glutes", "Machine", 10, 15, 5],
+["Machine Hip Thrust", "glutes", "Machine", 8, 12, 5],
+["Machine Lateral Raise", "shoulders", "Machine", 12, 20, 5],
+["Machine Preacher Curl", "biceps", "Machine", 10, 15, 5],
+["Machine Pulldown", "back", "Machine", 8, 12, 5],
+["Machine Pullover", "back", "Machine", 10, 15, 5],
+["Machine Reverse Flye", "shoulders", "Machine", 12, 20, 5, 0, "reverse-pec-deck"],
+["Machine Shoulder Press", "shoulders", "Machine", 8, 12, 5],
+["Machine Shrug", "traps", "Machine", 10, 15, 5],
+["Machine Triceps Extension", "triceps", "Machine", 10, 15, 5],
+["Machine Triceps Pushdown", "triceps", "Machine", 10, 15, 5],
+["Meadows Row", "back", "Barbell", 6, 10, 5],
+["Modified Candlestick", "abs", "Bodyweight", 12, 20, 5, 1],
+["Nordic Curl", "hamstrings", "Bodyweight", 10, 15, 5, 1],
+["Pec Dec Flye", "chest", "Machine", 10, 15, 5],
+["Pendulum Squat", "quads", "Machine", 8, 12, 10],
+["Pulldown (Narrow Grip)", "back", "Cable", 8, 12, 5],
+["Pulldown (Normal Grip)", "back", "Cable", 8, 12, 5, 0, "lat-pulldown-cable"],
+["Pulldown (Parallel Grip)", "back", "Cable", 8, 12, 5],
+["Pulldown (Single-Arm)", "back", "Cable", 8, 12, 5],
+["Pulldown (Straight Arm)", "back", "Cable", 12, 20, 5, 0, "straight-arm-pulldown"],
+["Pulldown (Underhand Grip)", "back", "Cable", 8, 12, 5],
+["Pulldown (Upright Torso to Abs)", "back", "Cable", 8, 12, 5],
+["Pulldown (Wide Grip)", "back", "Cable", 8, 12, 5],
+["Pullup (Normal Grip)", "back", "Bodyweight", 6, 12, 5, 1],
+["Pullup (Parallel Grip)", "back", "Bodyweight", 6, 12, 5, 1],
+["Pullup (Underhand Grip)", "back", "Bodyweight", 6, 12, 5, 1],
+["Pullup (Weighted, Normal Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
+["Pullup (Weighted, Parallel Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
+["Pullup (Weighted, Underhand Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
+["Pullup (Weighted, Wide Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
+["Pullup (Wide Grip)", "back", "Bodyweight", 6, 12, 5, 1],
+["Pushup", "chest", "Bodyweight", 10, 25, 5, 1, "push-up"],
+["Pushup (Deficit)", "chest", "Bodyweight", 10, 25, 5, 1],
+["Pushup (Narrow Grip)", "chest", "Bodyweight", 10, 25, 5, 1],
+["Pushup (Weighted, Narrow Grip)", "chest", "Bodyweight + weight", 8, 12, 5, 1],
+["Pushup (Weighted, Normal Grip)", "chest", "Bodyweight + weight", 8, 12, 5, 1],
+["Reaching Sit-Up", "abs", "Bodyweight", 12, 20, 5, 1],
+["Reverse Curl", "forearms", "Barbell", 12, 20, 5],
+["Reverse Hyper", "glutes", "Machine", 10, 15, 5],
+["Reverse Lunge (Barbell)", "glutes", "Barbell", 6, 10, 5],
+["Reverse Lunge (Dumbbell)", "glutes", "Dumbbell", 8, 12, 5],
+["Rogers Good Morning", "hamstrings", "Machine", 8, 12, 5],
+["Rogers Reverse Lunge", "glutes", "Machine", 8, 12, 5],
+["Rogers Squat", "quads", "Machine", 8, 12, 5],
+["Romanian Deadlift", "hamstrings", "Barbell", 6, 10, 10],
+["Seal Row", "back", "Barbell", 6, 10, 5],
+["Seated Cable Row", "back", "Cable", 10, 15, 5],
+["Seated Cable Row (Single-Arm)", "back", "Cable", 8, 12, 5],
+["Seated Calf Raise", "calves", "Machine", 12, 20, 5],
+["Seated Leg Curl", "hamstrings", "Machine", 10, 15, 5],
+["Single Leg Extension", "quads", "Machine", 10, 15, 5],
+["Single Leg Press", "quads", "Machine", 8, 12, 10],
+["Single Leg Romanian Deadlift", "hamstrings", "Dumbbell", 8, 12, 5],
+["Single-Leg Leg Curl", "hamstrings", "Machine", 10, 15, 5],
+["Sissy Squat (Machine)", "quads", "Bodyweight", 10, 15, 5, 1],
+["Sissy Squat (No Machine)", "quads", "Bodyweight", 10, 15, 5, 1],
+["Slant Board Sit-Up (Weighted)", "abs", "Bodyweight + weight", 12, 20, 5, 1],
+["Smith Machine Bench Press (Medium Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Bench Press (Narrow Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Bench Press (Wide Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Calves", "calves", "Smith Machine", 12, 20, 5],
+["Smith Machine Good Morning", "hamstrings", "Smith Machine", 8, 12, 5],
+["Smith Machine JM Press", "triceps", "Smith Machine", 10, 15, 5],
+["Smith Machine Press (High Incline, Medium Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (High Incline, Narrow Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (High Incline, Wide Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (Incline, Medium Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (Incline, Wide Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (Low Incline, Medium Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (Low Incline, Narrow Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (Low Incline, Wide Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Press (Medium Incline, Narrow Grip)", "chest", "Smith Machine", 8, 12, 5],
+["Smith Machine Row", "back", "Smith Machine", 8, 12, 5],
+["Smith Machine Shoulder Press (Seated)", "shoulders", "Smith Machine", 8, 12, 5],
+["Smith Machine Shrug", "traps", "Smith Machine", 10, 15, 5],
+["Smith Machine Skullcrusher", "triceps", "Smith Machine", 10, 15, 5],
+["Smith Machine Split Squat", "glutes", "Smith Machine", 8, 12, 5],
+["Smith Machine Squat (Feet Forward)", "quads", "Smith Machine", 8, 12, 5],
+["Smith Machine Upright Row", "shoulders", "Smith Machine", 10, 15, 5],
+["Stair Calves", "calves", "Bodyweight", 12, 20, 5, 1],
+["Stair Calves (Single Leg)", "calves", "Bodyweight", 12, 20, 5, 1],
+["Standing Calf Raise", "calves", "Machine", 10, 20, 10],
+["Stiff-Legged Deadlift", "hamstrings", "Barbell", 6, 10, 10],
+["T-Bar Row", "back", "Machine", 8, 12, 5],
+["Trap Bar Deadlift", "glutes", "Barbell", 6, 10, 10],
+["V-Up (Weighted)", "abs", "Bodyweight + weight", 12, 20, 5, 1],
+["Walking Lunges (Glute-Focused, Barbell)", "glutes", "Barbell", 6, 10, 5],
+["Walking Lunges (Glute-Focused, Bodyweight)", "glutes", "Bodyweight", 10, 20, 5, 1],
+["Walking Lunges (Glute-Focused, Dumbbell)", "glutes", "Dumbbell", 8, 12, 5],
+["Walking Lunges (Quad-Focused, Barbell)", "quads", "Barbell", 6, 10, 5],
+["Walking Lunges (Quad-Focused, Bodyweight)", "quads", "Bodyweight", 10, 20, 5, 1],
+["Walking Lunges (Quad-Focused, Dumbbell)", "quads", "Dumbbell", 8, 12, 5]];
+// Built-ins that were renamed when the library grew: old id -> [old default name, new name]. Ids never change, so history stays attached.
+const LIB_ALIAS={"bench-press-barbell": ["Bench Press (Barbell)", "Bench Press (Medium Grip)"], "incline-dumbbell-press": ["Incline Dumbbell Press", "Dumbbell Press (Medium Incline)"], "cable-fly": ["Cable Fly", "Cable Flye"], "push-up": ["Push-up", "Pushup"], "lat-pulldown-cable": ["Lat Pulldown (Cable)", "Pulldown (Normal Grip)"], "barbell-row": ["Barbell Row", "Barbell Bent Over Row"], "chest-supported-row-dumbbell": ["Chest-Supported Row (Dumbbell)", "Dumbbell Row (2-Arm, Incline)"], "straight-arm-pulldown": ["Straight-Arm Pulldown", "Pulldown (Straight Arm)"], "dumbbell-bent-over-shrug": ["Dumbbell Bent Over Shrug", "Dumbbell Bent Over Shrug (Traps)"], "barbell-shrug": ["Barbell Shrug", "Barbell Shrug (Traps)"], "overhead-press-barbell": ["Overhead Press (Barbell)", "Barbell Shoulder Press (Standing)"], "dumbbell-shoulder-press": ["Dumbbell Shoulder Press", "Dumbbell Shoulder Press (Seated)"], "cable-lateral-raise": ["Cable Lateral Raise", "Cable Lateral Raise (Single-Arm)"], "reverse-pec-deck": ["Reverse Pec Deck", "Machine Reverse Flye"], "face-pull": ["Face Pull", "Cable Rope Facepull"], "barbell-curl": ["Barbell Curl", "Barbell Curl (Normal Grip)"], "incline-dumbbell-curl": ["Incline Dumbbell Curl", "Dumbbell Curl (Incline)"], "overhead-cable-triceps-extension": ["Overhead Cable Triceps Extension", "Cable Overhead Triceps Extension"], "skullcrusher-ez-bar": ["Skullcrusher (EZ Bar)", "EZ Bar Skullcrusher"], "dip": ["Dip", "Dip (Triceps-Focused)"], "close-grip-bench-press": ["Close-Grip Bench Press", "Bench Press (Close Grip)"], "wrist-curl": ["Wrist Curl", "Dumbbell Bench Wrist Curl"], "back-squat": ["Back Squat", "Barbell Squat (High Bar)"], "bulgarian-split-squat-dumbbell": ["Bulgarian Split Squat (Dumbbell)", "Bulgarian Split Squat (Quad-Focused)"], "hip-thrust-barbell": ["Hip Thrust (Barbell)", "Barbell Hip Thrust"], "cable-pull-through": ["Cable Pull-Through", "Cable Pull Through"], "cable-crunch": ["Cable Crunch", "Cable Rope Crunch"]};
+const LIB_V=2;
+// Library rows: [name, muscle, equipment, reps low, reps high, weight step, kind (1 bodyweight, 2 assisted machine), id if it predates the name]
+function libEx([name,muscle,equip,lo,hi,inc,kind,id]){const e={id:id||idOf(name),name,muscle,equip,lo,hi,inc,bw:kind===1};if(kind===2)e.assist=true;return e}
+const libId=n=>{const r=LIB.find(r=>r[0]===n);if(!r)throw new Error('not in library: '+n);return r[7]||idOf(n)};
+/* Brings an older saved library up to date: renames untouched built-ins to their new names and adds exercises it lacks.
+   Never removes or overwrites anything the user has. Returns true when something changed. */
+function upgradeLib(st){
+  if((st.libv||1)>=LIB_V)return false;
+  for(const e of st.exercises){const a=LIB_ALIAS[e.id];if(a&&e.name===a[0])e.name=a[1]}
+  const ids=new Set(st.exercises.map(e=>e.id)),names=new Set(st.exercises.map(e=>e.name.toLowerCase()));
+  for(const r of LIB){const e=libEx(r);if(ids.has(e.id)||names.has(e.name.toLowerCase()))continue;
+    if((st.prefs&&st.prefs.unit)==='kg')e.inc/=2;st.exercises.push(e)}
+  st.libv=LIB_V;return true;
+}
 const idOf=n=>slug(n);
 function seedState(){
-  const exercises=LIB.map(([name,muscle,equip,lo,hi,inc,bw])=>({id:idOf(name),name,muscle,equip,lo,hi,inc,bw:!!bw}));
-  const it=(n,s)=>({exId:idOf(n),sets:s});
+  const exercises=LIB.map(libEx);
+  const it=(n,s)=>({exId:libId(n),sets:s});
   const templates=[{id:'tpl-sample',name:'Upper / Lower (sample)',days:[
-    {name:'Upper A',weekday:0,items:[it('Bench Press (Wide Grip)',4),it('Pullup (Parallel Grip)',3),it('Dumbbell Shoulder Press',3),it('Cable Triceps Pushdown (Bar)',3),it('Dumbbell Curl (Alternating)',3)]},
-    {name:'Lower A',weekday:1,items:[it('Back Squat',3),it('Romanian Deadlift',3),it('Leg Extension',3),it('Standing Calf Raise',3)]},
-    {name:'Upper B',weekday:3,items:[it('Seated Cable Row',3),it('Incline Dumbbell Press',3),it('Dumbbell Lateral Raise',3),it('Overhead Cable Triceps Extension',3),it('Concentration Curl',3),it('Dumbbell Bent Over Shrug',2)]},
-    {name:'Lower B',weekday:4,items:[it('Leg Press',3),it('Lying Leg Curl',3),it('Hip Thrust (Barbell)',3),it('Seated Calf Raise',3),it('Cable Crunch',3)]}]}];
-  return {v:1,prefs:{unit:'lb',bw:200,bar:45,barLoad:'total',needsSetup:true},exercises,templates,mesos:[],activeMeso:null,track:{}};
+    {name:'Upper A',weekday:0,items:[it('Bench Press (Wide Grip)',4),it('Pullup (Parallel Grip)',3),it('Dumbbell Shoulder Press (Seated)',3),it('Cable Triceps Pushdown (Bar)',3),it('Dumbbell Curl (Alternating)',3)]},
+    {name:'Lower A',weekday:1,items:[it('Barbell Squat (High Bar)',3),it('Romanian Deadlift',3),it('Leg Extension',3),it('Standing Calf Raise',3)]},
+    {name:'Upper B',weekday:3,items:[it('Seated Cable Row',3),it('Dumbbell Press (Medium Incline)',3),it('Dumbbell Lateral Raise',3),it('Cable Overhead Triceps Extension',3),it('Concentration Curl',3),it('Dumbbell Bent Over Shrug (Traps)',2)]},
+    {name:'Lower B',weekday:4,items:[it('Leg Press',3),it('Lying Leg Curl',3),it('Barbell Hip Thrust',3),it('Seated Calf Raise',3),it('Cable Rope Crunch',3)]}]}];
+  return {v:1,prefs:{unit:'lb',bw:200,bar:45,barLoad:'total',needsSetup:true},exercises,templates,mesos:[],activeMeso:null,track:{},libv:LIB_V};
 }
 let S=seedState();
 const rid=()=>Math.random().toString(36).slice(2,10);
@@ -283,6 +599,7 @@ function convertUnits(st,to){
   for(const e of st.exercises){if(e.inc)e.inc=to==='kg'?e.inc/2:e.inc*2;if(e.bar!=null)e.bar=convBar(e.bar,to)}
   for(const m of st.mesos)for(const se of Object.values(m.sessions))for(const x of se.exs){
     if(x.bar!=null)x.bar=convW(x.bar,to);   // history: exact, so totals stay true
+    if(x.abw!=null)x.abw=convW(x.abw,to);
     for(const t of x.sets){t.w=convW(t.w,to);t.pw=convW(t.pw,to)}
   }
   return st;
@@ -338,12 +655,13 @@ function prevMuscle(m,muscle,o){
 /* Next load and reps for one exercise at a target RIR, using an Epley estimate of the last best set. */
 /* Weight entry. A "per side" exercise stores the weight on ONE end; total = bar + 2 x that. Progression always works in total weight. */
 const loadMode=e=>{
+  if(e.assist)return {side:false,bar:0,assist:true,abw:S.prefs.bw||0};   // assisted machine: the entered weight is the assistance
   if(e.bw)return {side:false,bar:0};
   const l=e.load||'default';
   const side=l==='side'||(l==='default'&&/barbell/i.test(e.equip||'')&&(S.prefs.barLoad||'total')==='side');
   return {side,bar:side?(e.bar>0?e.bar:(S.prefs.bar>0?S.prefs.bar:0)):0};
 };
-const totOf=(x,w)=>x.side?(x.bar||0)+2*w:w;
+const totOf=(x,w)=>x.assist?Math.max(0,(x.abw||0)-w):x.side?(x.bar||0)+2*w:w;   // assisted: load moved = bodyweight - assistance
 // Compares a logged set's estimated 1RM (on total weight) with the planned set's: 'up', 'down', or null when equal.
 // Week 1 has no real expectation yet, and a set with no planned weight has nothing to compare against.
 function vsPlan(x,t,wk){
@@ -353,13 +671,13 @@ function vsPlan(x,t,wk){
 }
 function planLoad(e,lp,t,dl,mode){
   mode=mode||{side:false,bar:0};
-  const inc=e.inc||5,side=!!mode.side,bar=mode.bar||0,step=side?inc*2:inc;
-  const toW=T=>side?(T-bar)/2:T,ok=v=>side?v>=0:v>0;
+  const inc=e.inc||5,side=!!mode.side,bar=mode.bar||0,step=side?inc*2:inc,asst=!!mode.assist,abw=mode.abw||0;
+  const toW=T=>asst?abw-T:side?(T-bar)/2:T,ok=v=>side||asst?v>=0:v>0;
   if(!lp||!(lp.tot>0)){return {w:e.bw?(S.prefs.bw||null):null,r:Math.round((e.lo+e.hi)/2)}}
-  if(dl){const T=e.bw?lp.tot:lp.tot*0.75;const w=e.bw?T:Math.max(side?0:inc,roundTo(toW(T),inc));return {w,r:Math.max(1,Math.min(e.hi,Math.round(lp.r*(e.bw?0.7:1))))}}
+  if(dl){const T=e.bw?lp.tot:lp.tot*0.75;const w=e.bw?T:Math.max(side||asst?0:inc,roundTo(toW(T),inc));return {w,r:Math.max(1,Math.min(e.hi,Math.round(lp.r*(e.bw?0.7:1))))}}
   const e1=lp.tot*(1+(lp.r+lp.rir)/30);
   let T=lp.tot,r=(e1/T-1)*30-t,n=0;
-  while(r>e.hi+0.49&&n<8){T+=step;r=(e1/T-1)*30-t;n++}
+  while(r>e.hi+0.49&&n<8&&ok(toW(T+step))){T+=step;r=(e1/T-1)*30-t;n++}
   n=0;while(r<e.lo-1.5&&n<3&&ok(toW(T-step))){T-=step;r=(e1/T-1)*30-t;n++}
   return {w:Math.round(toW(T)*4)/4,r:Math.max(1,Math.round(r))};   // 0.25 grid keeps suggestions loadable after a unit switch
 }
@@ -398,7 +716,7 @@ function makeEx(m,wk,di,exId,tplSets){
   const mode=loadMode(e),p=planLoad(e,lastPerf(exId,m,o),t,dl,mode);
   // Set types carry over to the same set position from last time.
   const types=prev?prev.x.sets.map(t=>t.ty):[];
-  return {exId,note:'',side:mode.side,bar:mode.bar,base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>withType({w:p.w,r:p.r,pw:p.w,pr:p.r,done:false},types[i]))};
+  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.assist?{assist:true,abw:mode.abw}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>withType({w:p.w,r:p.r,pw:p.w,pr:p.r,done:false},types[i]))};
 }
 /* Set types: none = regular, 'myo' = myorep (mini-sets, log total reps), 'match' = myorep match (target = set 1's reps). */
 function withType(t,ty){if(ty==='myo'||ty==='match')t.ty=ty;return t}
@@ -437,7 +755,7 @@ const muscleOf=x=>ex(x.exId)?.muscle;
    Yes: ask again tomorrow. No: stop until that muscle is trained again. */
 const SORE_LBL=['Never got sore','Recovered early','Recovered just in time','Still sore'];
 const dayDiff=(a,b)=>{const p=s=>{const [y,m,d]=s.split('-').map(Number);return Date.UTC(y,m-1,d)};return Math.round((p(b)-p(a))/864e5)};
-function normalize(){S.track=S.track||{};S.prefs=Object.assign({unit:'lb',bw:200,bar:45,barLoad:'total'},S.prefs||{})}
+function normalize(){S.track=S.track||{};S.prefs=Object.assign({unit:'lb',bw:200,bar:45,barLoad:'total'},S.prefs||{});return upgradeLib(S)}
 function trackWorked(mu){S.track[mu]={workedOn:today(),status:'open',asked:[],lastAsked:null,healedOn:null}}
 function dueSoreness(){const d=today();return MUSCLES.filter(m=>{const t=S.track&&S.track[m.id];return t&&t.status==='open'&&t.workedOn<d&&t.lastAsked!==d})}
 /* Turn the check-in history of a muscle into the 0 to 3 soreness rating, or null when there is not enough to go on. */
@@ -461,7 +779,7 @@ const SB_URL='https://zatngvydcqwlilmhafxj.supabase.co';
 const SB_KEY='sb_publishable_1Vt9AiHDJd6eVuGxOuqw1Q_bKeqDNG6';
 const LSKEY='meso-log-v1',LSOWNER='meso-log-owner',LSMODE='meso-log-mode';
 let sb=null,USER=null,READY=false,STATUS='local',dirty=new Set(),saveT=null,flushing=false,again=false,lastErr=null;
-const coreData=()=>({v:S.v,prefs:S.prefs,exercises:S.exercises,templates:S.templates,activeMeso:S.activeMeso,track:S.track||{},mesoIds:S.mesos.map(m=>m.id)});
+const coreData=()=>({v:S.v,libv:S.libv,prefs:S.prefs,exercises:S.exercises,templates:S.templates,activeMeso:S.activeMeso,track:S.track||{},mesoIds:S.mesos.map(m=>m.id)});
 const clone=o=>JSON.parse(JSON.stringify(o));
 const ok=r=>{if(r.error)throw r.error;return r.data};
 function saveLocal(){try{localStorage.setItem(LSKEY,JSON.stringify(S));if(USER&&READY)localStorage.setItem(LSOWNER,USER.id)}catch(e){}}
@@ -506,7 +824,7 @@ async function initStorage(){
     if(core){
       const d=core.data;
       const ms=ok(await sb.from('mesos').select('data').eq('user_id',USER.id));
-      S={v:1,prefs:d.prefs||S.prefs,exercises:d.exercises||S.exercises,templates:d.templates||S.templates,activeMeso:d.activeMeso||null,track:d.track||{},mesos:ms.map(x=>x.data)};
+      S={v:1,libv:d.libv,prefs:d.prefs||S.prefs,exercises:d.exercises||S.exercises,templates:d.templates||S.templates,activeMeso:d.activeMeso||null,track:d.track||{},mesos:ms.map(x=>x.data)};
       S.mesos.sort((a,b)=>a.created-b.created);
       READY=true;STATUS='account';saveLocal();
     }else{
@@ -602,7 +920,7 @@ function viewWorkout(){
   s.exs.forEach((x,ei)=>{
     const e=ex(x.exId),mu=e.muscle;
     if(mu!==last){h+=badge(mu);last=mu}
-    h+='<section class="ex" data-ei="'+ei+'"><div class="ex-h"><div class="grow"><h3>'+esc(e.name)+'</h3><p>'+(e.bw?'Bodyweight @ <u data-act="bwedit">'+fmt(S.prefs.bw)+' '+unit()+'</u>':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':''))+' · '+e.lo+'–'+e.hi+' reps</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
+    h+='<section class="ex" data-ei="'+ei+'"><div class="ex-h"><div class="grow"><h3>'+esc(e.name)+'</h3><p>'+(e.bw?'Bodyweight @ <u data-act="bwedit">'+fmt(S.prefs.bw)+' '+unit()+'</u>':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+' · '+e.lo+'–'+e.hi+' reps</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
     if(x.swap)h+='<div class="flag">Severe joint pain last time. Consider replacing this exercise.</div>';
     if(x.note)h+='<div class="note">'+esc(x.note)+'</div>';
     h+='<div class="cols"><span></span><span>Weight</span><span>Reps</span><span></span><span>Log</span></div>';
@@ -847,7 +1165,7 @@ function openPicker(pick,title){
 /* forms */
 function exForm(e){
   e=e||{id:null,name:'',muscle:'chest',equip:'',lo:8,hi:12,inc:5,bw:false};
-  sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eq">Equipment</label><input id="f_eq" class="in" value="'+esc(e.equip)+'"></div></div><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div><div class="field"><label for="f_bw">Bodyweight exercise</label><select id="f_bw" class="in"><option value="0"'+(e.bw?'':' selected')+'>No</option><option value="1"'+(e.bw?' selected':'')+'>Yes</option></select></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
+  sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eq">Equipment</label><input id="f_eq" class="in" value="'+esc(e.equip)+'"></div></div><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div><div class="field"><label for="f_bw">Bodyweight exercise</label><select id="f_bw" class="in"><option value="0"'+(e.bw||e.assist?'':' selected')+'>No</option><option value="1"'+(e.bw?' selected':'')+'>Yes</option><option value="2"'+(e.assist?' selected':'')+'>Assisted machine</option></select></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
 }
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
 
@@ -955,7 +1273,7 @@ newex(){exForm()},
 editex(el){exForm(ex(el.dataset.id))},
 exsave(el){const name=$('#f_name').value.trim();if(!name){toast('Give it a name');return}
   const lo=Math.max(1,parseInt($('#f_lo').value)||8),hi=Math.max(lo,parseInt($('#f_hi').value)||12),inc=num($('#f_inc').value)||5;
-  const d={name,muscle:$('#f_mu').value,equip:$('#f_eq').value.trim(),lo,hi,inc,bw:$('#f_bw').value==='1',load:$('#f_ld').value,bar:num($('#f_bar').value)||0};
+  const d={name,muscle:$('#f_mu').value,equip:$('#f_eq').value.trim(),lo,hi,inc,bw:$('#f_bw').value==='1',assist:$('#f_bw').value==='2',load:$('#f_ld').value,bar:num($('#f_bar').value)||0};
   if(el.dataset.id)Object.assign(ex(el.dataset.id),d);else{let id=idOf(name);while(ex(id))id+='-'+rid().slice(0,3);S.exercises.push({id,...d})}
   mark('core');closeSheet();render()},
 exdel(el){const id=el.dataset.id;if(S.templates.some(t=>t.days.some(d=>d.items.some(i=>i.exId===id)))){toast('Remove it from your templates first');return}
@@ -1025,7 +1343,7 @@ document.addEventListener('focusin',e=>{const el=e.target;if(el.matches&&el.matc
 /* boot */
 (async function(){
   const mode=await Promise.race([initStorage(),new Promise(r=>setTimeout(()=>r('app'),7000))]);
-  normalize();
+  if(normalize())mark('core');
   document.addEventListener('visibilitychange',()=>{
     if(ui.signin||document.visibilityState!=='visible'||!$('#sheet').hidden)return;
     const a=document.activeElement;if(a&&a.matches&&a.matches('input,textarea,select'))return;

@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB
 };`);
 
 let ok = 0, bad = 0;
@@ -209,6 +209,42 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   eq(T.buildSession(bm, 2, 1).exs.length, 0, 'other days are unaffected');
   s1.exs.reverse(); T.syncDay(bm, s1); eq(bm.days[0].items.map(i => i.exId), ['barbell-row', 'bench-press-barbell'], 'order carries too');
   const tm = { days: [{ items: [{ exId: 'x', sets: 3 }] }] }; T.syncDay(tm, { di: 0, exs: [] }); eq(tm.days[0].items.length, 1, 'template blocks never change their days'); }
+
+// ---- exercise library ----
+{ T.S = T.seedState(); T.normalize();
+  eq(T.S.exercises.length, T.LIB.length, 'new users get the whole library');
+  eq(new Set(T.S.exercises.map(e => e.id)).size, T.S.exercises.length, 'library ids are unique');
+  eq(['ab-wheel', 'burpee', 'curl-machine', 'bodyweight-squat-2-3'].some(id => T.ex(id)), false, 'custom exercises from the other app are left out');
+  eq(T.ex('bench-press-barbell').name, 'Bench Press (Medium Grip)', 'old ids keep working under the new name');
+  eq(T.S.templates[0].days.every(d => d.items.every(i => T.ex(i.exId))), true, 'sample template points at real exercises');
+  // An older account: old default names, a renamed built-in, a custom exercise, and logged history.
+  const old = { v: 1, prefs: { unit: 'kg', bw: 80 }, exercises: [
+      { id: 'barbell-row', name: 'Barbell Row', muscle: 'back', equip: 'Barbell', lo: 6, hi: 10, inc: 2.5 },
+      { id: 'face-pull', name: 'My Face Pulls', muscle: 'shoulders', equip: 'Cable', lo: 12, hi: 20, inc: 2.5 },
+      { id: 'hack-squat', name: 'Hack Squat', muscle: 'quads', equip: 'Machine', lo: 6, hi: 8, inc: 5 },
+      { id: 'my-thing', name: 'Pec Dec Flye', muscle: 'chest', equip: 'Machine', lo: 10, hi: 15, inc: 5 }],
+    templates: [], mesos: [], activeMeso: null, track: {} };
+  eq(T.upgradeLib(old), true, 'old library upgrades');
+  const by = id => old.exercises.find(e => e.id === id);
+  eq(by('barbell-row').name, 'Barbell Bent Over Row', 'untouched built-in gets its new name');
+  eq(by('face-pull').name, 'My Face Pulls', 'a name the user changed is kept');
+  eq([by('hack-squat').lo, by('hack-squat').hi], [6, 8], 'user settings are never overwritten');
+  eq(old.exercises.filter(e => e.name.toLowerCase() === 'pec dec flye').length, 1, 'no duplicate of an exercise the user already made');
+  eq(by('arnold-press').inc, 2.5, 'added exercises use kg steps for kg users');
+  eq(T.upgradeLib(old), false, 'upgrade runs once');
+  const n = old.exercises.length; old.exercises = old.exercises.filter(e => e.id !== 'arnold-press'); T.upgradeLib(old);
+  eq(old.exercises.length, n - 1, 'a deleted exercise does not come back'); }
+{ // assisted machines: entered weight is assistance, so less assistance is progress
+  T.S = T.seedState(); T.normalize(); T.S.prefs.bw = 200;
+  const a = T.ex('assisted-pullup-normal-grip');
+  eq([a.assist, a.bw], [true, false], 'assisted exercises are flagged');
+  const mode = T.loadMode(a); eq(mode, { side: false, bar: 0, assist: true, abw: 200 }, 'assisted load mode uses bodyweight');
+  eq(T.totOf(mode, 60), 140, 'load moved = bodyweight - assistance');
+  const p = T.planLoad(a, { tot: 140, r: 14, rir: 0 }, 0, false, mode);
+  eq(p.w < 60, true, 'beating the top of the range means less assistance');
+  eq(T.planLoad(a, { tot: 140, r: 10, rir: 2 }, 2, false, mode).w, 60, 'holds assistance while reps climb');
+  eq(T.planLoad(a, { tot: 195, r: 14, rir: 0 }, 0, false, mode).w >= 0, true, 'assistance never goes below zero');
+  eq(T.vsPlan(mode, { w: 50, r: 10, pw: 60, pr: 10, done: true }, 2), 'up', 'less assistance than planned is up'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
