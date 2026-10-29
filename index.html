@@ -128,6 +128,13 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .sslog{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1.5px solid var(--ok);color:var(--ok);font-weight:600;font-size:13px}
 .sslog svg{width:14px;height:14px}
 .ssok{color:var(--ok)}
+.prow{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.pmu{flex:1;font-weight:600}
+.seg{display:flex;background:var(--surface2);border-radius:9px;padding:2px}
+.seg button{padding:7px 9px;border-radius:7px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.pinfo{margin-top:12px;color:var(--muted);font-size:14px}
+.pinfo p{margin:6px 0}
 .set .chartb.up{color:var(--ok)}
 .set .chartb.down{color:var(--bad)}
 .row-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:12px;background:var(--surface);color:var(--accent);font-weight:600;margin-top:6px}
@@ -715,6 +722,16 @@ function planLoad(e,lp,t,dl,mode){
   return {w:Math.round(toW(T)*4)/4,r:Math.max(1,Math.round(r))};   // 0.25 grid keeps suggestions loadable after a unit switch
 }
 /* Set change for a muscle from soreness (this session's prompt) plus last session's pump and volume ratings. */
+/* Muscle priorities, per mesocycle (m.prio[muscle], default 'grow'). Grow is the standard rule set.
+   Emphasize adds one more set when recovery is good (soreness gone early, volume not near the limit).
+   Maintain never adds sets but still removes them when feedback says it is too much. */
+const PRIO_V=['emph','grow','maint'];
+function prioDelta(d,p,sor,vol){
+  if(p==='emph'&&d>=0&&sor<=1&&(vol==null||vol<=1))d+=1;
+  if(p==='maint')d=Math.min(d,0);
+  return Math.max(-3,Math.min(3,d));
+}
+const prioOf=(m,mu)=>(m&&m.prio&&m.prio[mu])||'grow';
 function setDelta(sor,pump,vol){
   let d=[2,1,0,-2][sor];
   if(vol!=null)d+=[1,0,-1,-2][vol];
@@ -736,7 +753,7 @@ function resize(x,n){
 function applyMuscle(m,s,muscle){
   const fb=s.fb[muscle];if(!fb||fb.sor==null||s.wk===m.weeks)return;
   const prev=prevMuscle(m,muscle,ord(s));const pf=(prev&&prev.fb&&prev.fb[muscle])||{};
-  fb.delta=setDelta(fb.sor,pf.pump,pf.vol);
+  fb.delta=prioDelta(setDelta(fb.sor,pf.pump,pf.vol),prioOf(m,muscle),fb.sor,pf.vol);
   const xs=s.exs.filter(x=>!x.ivl&&ex(x.exId)?.muscle===muscle);   // interval rounds are fixed by their own plan
   const counts=distribute(xs.map(x=>x.base),fb.delta);
   xs.forEach((x,i)=>resize(x,counts[i]));
@@ -928,6 +945,13 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n==null||n===''?'':String(Math.round(n*100)/100);
 const EQUIP=[['Barbell','Barbell'],['Dumbbell','Dumbbell'],['Cable','Cable'],['Machine','Machine'],['Smith Machine','Smith machine'],['Freemotion','Freemotion'],['Bodyweight','Bodyweight only',1],['Bodyweight + weight','Bodyweight + added weight',3],['Assisted machine','Machine assistance',2]];
+const PRIO={emph:{name:'Emphasize',bars:3,desc:'Adds an extra set whenever your feedback says you are recovering well. Most volume, for the muscles you most want to grow.'},
+ grow:{name:'Grow',bars:2,desc:'The standard rules. Adds sets when feedback says there is room and removes them when it is too much.'},
+ maint:{name:'Maintain',bars:1,desc:'Never adds sets, only removes them if needed. Enough work to keep the muscle while saving recovery for the others.'}};
+function prioSheet(id){const m=S.mesos.find(z=>z.id===id)||meso();if(!m)return;ui.prioM=m.id;
+  sheet('<h2>Muscle priorities</h2><p style="color:var(--muted);margin-top:0">For '+esc(m.name)+'. Changes apply to set adjustments from your next feedback on.</p>'
+   +MUSCLES.map(mu=>'<div class="prow"><span class="pmu">'+esc(mu.name)+'</span><div class="seg">'+PRIO_V.map(v=>'<button class="'+(prioOf(m,mu.id)===v?'on':'')+'" data-act="prioset" data-mu="'+mu.id+'" data-v="'+v+'">'+PRIO[v].name+'</button>').join('')+'</div></div>').join('')
+   +'<div class="pinfo">'+PRIO_V.map(v=>'<p><b>'+PRIO[v].name+'.</b> '+PRIO[v].desc+'</p>').join('')+'</div><div class="foot"><button class="btn pri" data-act="close">Done</button></div>')}
 const SET_TY={
  reg:{name:'Regular',short:'',desc:'One straight set. Aim for the rep target at this week’s reps in reserve.'},
  myo:{name:'Myorep',short:'M',desc:'Short mini-sets with 5 to 15 seconds of rest between them, aiming for the same target. Log the total reps.'},
@@ -1040,7 +1064,7 @@ function viewMesos(){
     const total=m.weeks*m.days.length,done=Object.values(m.sessions).filter(s=>s.done).length,p=nextPending(m);
     h+='<div class="card"><h3>'+esc(m.name)+(m.id===S.activeMeso?'<span class="tag">Active</span>':'')+'</h3><p>'+m.weeks+' weeks · '+m.days.length+' days a week · from '+esc(m.start)+(m.style==='test'?' · test week':'')+'</p><div class="meter"><i style="width:'+(done/total*100)+'%"></i></div><p class="num">'+done+' of '+total+' workouts done'+(done<total?' · next is week '+p.wk+', day '+(p.di+1):' · complete')+'</p><div class="acts">'
       +(m.id===S.activeMeso?'':'<button class="btn pri" data-act="activate" data-id="'+m.id+'">Make active</button>')
-      +'<button class="btn" data-act="openmeso" data-id="'+m.id+'">Open</button><button class="btn bad" data-act="delmeso" data-id="'+m.id+'">Delete</button></div></div>';
+      +'<button class="btn" data-act="openmeso" data-id="'+m.id+'">Open</button><button class="btn" data-act="prio" data-id="'+m.id+'">Priorities</button><button class="btn bad" data-act="delmeso" data-id="'+m.id+'">Delete</button></div></div>';
   });
   return h+'</div>';
 }
@@ -1279,6 +1303,10 @@ function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="
 /* ---------- action handlers ---------- */
 const ACT={
 close(){closeSheet()},
+prio(el){prioSheet(el.dataset.id)},
+prioset(el){const m=S.mesos.find(z=>z.id===ui.prioM);if(!m)return;m.prio=m.prio||{};
+  if(el.dataset.v==='grow')delete m.prio[el.dataset.mu];else m.prio[el.dataset.mu]=el.dataset.v;mark('meso:'+m.id);
+  const y=$('.panel').scrollTop;prioSheet(m.id);$('.panel').scrollTop=y},
 sslog(el){const s=curSession(),si=+el.dataset.si,eis=el.dataset.eis.split(',').map(Number).filter(ei=>!s.exs[ei].sets[si].done);
   for(const ei of eis){const x=s.exs[ei],t=x.sets[si];if(!(t.r>0)||!(t.w>0||((x.plus||x.assist)&&t.w===0))){toast('Enter weight and reps for '+ex(x.exId).name);return}}
   ui.pq=(ui.pq||[]).concat(eis.map(ei=>()=>{if(curSession()===s&&!s.exs[ei].sets[si].done)toggleSet(ei,si)}));pqNext()},
@@ -1358,7 +1386,7 @@ cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" 
   for(let wk=1;wk<=m.weeks;wk++){h+='<div class="wk"><b>Wk '+wk+(wk===m.weeks?' D':'')+'</b>';for(let di=0;di<n;di++){const s=m.sessions[wk+'-'+di],c=s?sessCounts(s):{d:0,t:1};const cl=(s&&s.done)?'full':(c.d?'part':'');h+='<button class="d '+cl+(wk===ui.wk&&di===ui.di?' now':'')+'" data-act="goto" data-wk="'+wk+'" data-di="'+di+'">'+(di+1)+'</button>'}h+='</div>'}
   sheet(h+'</div><p style="color:var(--muted);font-size:14px;margin-top:12px">Filled green is finished. The last week is the deload.</p>')},
 goto(el){ui.wk=+el.dataset.wk;ui.di=+el.dataset.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0)},
-sessmenu(){sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
+sessmenu(){sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast('Workout saved')},
 resetday(){confirmSheet('Reset this day?','Logged sets and feedback for this day are cleared and the plan is rebuilt.','doreset')},
 doreset(){const m=meso();delete m.sessions[ui.wk+'-'+ui.di];ui.tmp=null;mark('meso:'+m.id);closeSheet();render()},
@@ -1376,6 +1404,7 @@ mesocreate(){const tid=$('#f_mt').value,t=S.templates.find(z=>z.id===tid);
   const days=t?clone(t.days).sort((a,b)=>a.weekday-b.weekday):blankDays(+$('#f_md').value);
   const m={id:rid(),name:$('#f_mn').value.trim()||(t?t.name:'New block'),weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days,sessions:{},created:Date.now(),template:t?t.name:'Blank',style:$('#f_mr').value==='test'?'test':'std'};
   if(!t)m.blank=true;
+  const pm=S.mesos[S.mesos.length-1];if(pm&&pm.prio&&Object.keys(pm.prio).length)m.prio=clone(pm.prio);
   S.mesos.push(m);S.activeMeso=m.id;mark('core','meso:'+m.id);gotoPending();ui.tab='workout';closeSheet();render();window.scrollTo(0,0)},
 activate(el){S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
 openmeso(el){S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
