@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta
 };`);
 
 let ok = 0, bad = 0;
@@ -310,6 +310,25 @@ eq(T.ssGroups([{ ss: true }, { ivl: true }]), [[0], [1]], 'interval exercises ne
   eq(T.ssGroups(T.buildSession(m, 3, 0).exs), [[0, 1]], 'and stays linked in later weeks');
   const b = { id: 'sb', blank: true, days: [{ items: [] }] }; T.syncDay(b, { di: 0, exs: [{ exId: 'a', base: 3, sets: [], ss: true }, { exId: 'b', base: 3, sets: [] }] });
   eq(b.days[0].items, [{ exId: 'a', sets: 3, ss: true }, { exId: 'b', sets: 3 }], 'blank days remember links'); }
+
+// ---- muscle priorities ----
+eq(T.prioDelta(1, 'grow', 1, 1), 1, 'grow is the standard rule');
+eq(T.prioDelta(1, 'emph', 1, 1), 2, 'emphasize adds one more set when recovered');
+eq(T.prioDelta(0, 'emph', 0, null), 1, 'emphasize adds when nothing else would');
+eq(T.prioDelta(1, 'emph', 2, 1), 1, 'emphasize does not push a muscle that recovered just in time');
+eq(T.prioDelta(1, 'emph', 1, 2), 1, 'or one that is near its volume limit');
+eq(T.prioDelta(-2, 'emph', 3, 3), -2, 'emphasize still removes sets when it is too much');
+eq(T.prioDelta(3, 'emph', 0, 0), 3, 'never more than 3');
+eq(T.prioDelta(2, 'maint', 0, 0), 0, 'maintain never adds');
+eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
+{ T.S = T.seedState(); T.normalize();
+  const m = { id: 'pr', name: 'pr', weeks: 5, start: '2026-11-02', days: [{ name: 'D', weekday: 0, items: [{ exId: 'goblet-squat', sets: 3 }, { exId: 'leg-press', sets: 3 }] }], sessions: {}, created: 12, template: 'x', prio: { quads: 'maint' } };
+  T.S.mesos.push(m);
+  const s1 = T.buildSession(m, 1, 0); s1.exs.forEach(x => x.sets.forEach(t => { t.done = true; })); s1.fb = { quads: { sor: 0, pump: 2, vol: 0 } }; m.sessions[s1.key] = s1;
+  const s2 = T.buildSession(m, 2, 0); s2.fb = { quads: { sor: 0 } }; T.applyMuscle(m, s2, 'quads');
+  eq([s2.fb.quads.delta, s2.exs.map(x => x.sets.length)], [0, [3, 3]], 'maintain keeps sets even when feedback says add');
+  m.prio = { quads: 'emph' }; const s3 = T.buildSession(m, 2, 0); s3.fb = { quads: { sor: 0 } }; T.applyMuscle(m, s3, 'quads');
+  eq(s3.fb.quads.delta, 3, 'emphasize on the same feedback adds the most'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
