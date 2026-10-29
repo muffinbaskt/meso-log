@@ -408,6 +408,10 @@ function matchTargets(x){
   x.sets.forEach((t,i)=>{if(i>0&&t.ty==='match'&&!t.done&&(t.r!==f.r||t.pr!==f.r)){t.r=f.r;t.pr=f.r;ch.push(i)}});
   return ch;
 }
+/* Blank mesocycles: days start empty, and the exercises in a day's workout become that day's plan for later weeks. */
+const BLANK_WD={1:[0],2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
+function blankDays(n){return BLANK_WD[n].map((wd,i)=>({name:'Day '+(i+1),weekday:wd,items:[]}))}
+function syncDay(m,s){if(m&&m.blank)m.days[s.di].items=s.exs.map(x=>({exId:x.exId,sets:x.base||x.sets.length}))}
 function buildSession(m,wk,di){
   const day=m.days[di];
   return {wk,di,key:wk+'-'+di,exs:day.items.filter(i=>ex(i.exId)).map(i=>makeEx(m,wk,di,i.exId,i.sets)),fb:{},done:false,date:null};
@@ -611,6 +615,7 @@ function viewWorkout(){
     });
     h+='</section>';
   });
+  if(!s.exs.length)h+='<div class="empty">'+(m.blank?'This day is empty. Add exercises and they carry over to this day every week.':'No exercises on this day.')+'</div>';
   h+='<button class="row-btn quiet" data-act="addex" style="margin-top:14px">'+I.plus+'Add exercise</button>';
   if(!s.done)h+='<button class="row-btn main" data-act="finish" style="margin-top:14px">Finish workout</button>';
   h+='</div>';
@@ -817,7 +822,7 @@ function soreStatus(){
   return h+'</div>';
 }
 
-function moveEx(ei,d){const s=curSession(),j=ei+d;if(j<0||j>=s.exs.length)return;[s.exs[ei],s.exs[j]]=[s.exs[j],s.exs[ei]];commit(s)}
+function moveEx(ei,d){const s=curSession(),j=ei+d;if(j<0||j>=s.exs.length)return;[s.exs[ei],s.exs[j]]=[s.exs[j],s.exs[ei]];syncDay(meso(),s);commit(s)}
 function updProg(){const s=curSession(),c=sessCounts(s),p=$('#prog');if(p)p.style.width=(c.t?c.d/c.t*100:0)+'%'}
 
 /* pickers */
@@ -890,7 +895,7 @@ xjoint(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Joint pain</h2><div clas
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
 xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
-xrm(){const s=curSession();s.exs.splice(ui.ei,1);commit(s);closeSheet();render()},
+xrm(){const s=curSession();s.exs.splice(ui.ei,1);syncDay(meso(),s);commit(s);closeSheet();render()},
 setmenu(el){const c=ctx(el);ui.ei=c.ei;ui.si=c.si;const ty=curSession().exs[c.ei].sets[c.si].ty;sheet('<h2>Set '+(c.si+1)+'</h2><div class="menu"><button class="li" data-act="stypes">'+I.swap+'<div><b>Set type</b><small>'+(ty?SET_TY[ty].name:'Regular')+'</small></div></button><button class="li" data-act="sdup">'+I.plus+'Duplicate set</button><button class="li bad" data-act="srm">'+I.trash+'Remove set</button></div>')},
 stypes(){const t=curSession().exs[ui.ei].sets[ui.si],cur=t.ty||'reg';
   sheet('<h2>Set type</h2><div class="menu">'+['reg','myo','match'].map(k=>'<button class="li'+(k===cur?' on':'')+'" data-act="stype" data-v="'+k+'"><div><b>'+SET_TY[k].name+(k===cur?' ✓':'')+'</b><small>'+SET_TY[k].desc+'</small></div></button>').join('')+'</div>')},
@@ -916,12 +921,15 @@ pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3))}
   else if(p.kind==='replace'){const old=s.exs[p.ei];s.exs[p.ei]=makeEx(m,ui.wk,ui.di,id,old.planned)}
   else if(p.kind==='tpl'){const t=S.templates.find(z=>z.id===ui.tpl);t.days[p.di].items.push({exId:id,sets:3});mark('core')}
-  if(p.kind!=='tpl')commit(s);closeSheet();render()},
+  if(p.kind!=='tpl'){syncDay(m,s);commit(s)}closeSheet();render()},
 /* mesos */
-newmeso(){if(!S.templates.length){toast('Create a template first');ui.tab='templates';closeSheet();render();return}
-  sheet('<h2>New mesocycle</h2><div class="field"><label for="f_mn">Name</label><input id="f_mn" class="in" value="'+esc(S.templates[0].name.replace(/ \(sample\)/,'')+' block')+'"></div><div class="field"><label for="f_mt">Template</label><select id="f_mt" class="in">'+S.templates.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join('')+'</select></div><div class="two"><div class="field"><label for="f_mw">Weeks</label><select id="f_mw" class="in">'+[4,5,6,7,8].map(n=>'<option'+(n===5?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="field"><label for="f_ms">Start date</label><input id="f_ms" type="date" class="in" value="'+today()+'"></div></div><div class="field"><label for="f_mr">Reps in reserve</label><select id="f_mr" class="in"><option value="std">Standard: 3, 2, 1, 0</option><option value="test">Test week: 0–1, then 2, 1, 0</option></select></div><p style="color:var(--muted);font-size:14px">Test week takes every set in week 1 to 0–1 reps in reserve, close to failure, so the app measures your real strength instead of relying on a guess at 3. The last week is a deload.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="mesocreate">Start</button></div>')},
-mesocreate(){const t=S.templates.find(z=>z.id===$('#f_mt').value);if(!t||!t.days.length){toast('That template has no days');return}
-  const m={id:rid(),name:$('#f_mn').value.trim()||t.name,weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days:clone(t.days).sort((a,b)=>a.weekday-b.weekday),sessions:{},created:Date.now(),template:t.name,style:$('#f_mr').value==='test'?'test':'std'};
+newmeso(){const t0=S.templates[0];
+  sheet('<h2>New mesocycle</h2><div class="field"><label for="f_mn">Name</label><input id="f_mn" class="in" value="'+esc(t0?t0.name.replace(/ \(sample\)/,'')+' block':'New block')+'"></div><div class="field"><label for="f_mt">Template</label><select id="f_mt" class="in" data-chg="mtpl">'+S.templates.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join('')+'<option value=""'+(t0?'':' selected')+'>Blank: build as you go</option></select></div><div class="field" id="w_md"'+(t0?' hidden':'')+'><label for="f_md">Days per week</label><select id="f_md" class="in">'+[1,2,3,4,5,6,7].map(n=>'<option'+(n===4?' selected':'')+'>'+n+'</option>').join('')+'</select><p style="color:var(--muted);font-size:14px;margin:4px 0 0">Each day starts empty. Exercises you add on a day carry over to that day every week.</p></div><div class="two"><div class="field"><label for="f_mw">Weeks</label><select id="f_mw" class="in">'+[4,5,6,7,8].map(n=>'<option'+(n===5?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="field"><label for="f_ms">Start date</label><input id="f_ms" type="date" class="in" value="'+today()+'"></div></div><div class="field"><label for="f_mr">Reps in reserve</label><select id="f_mr" class="in"><option value="std">Standard: 3, 2, 1, 0</option><option value="test">Test week: 0–1, then 2, 1, 0</option></select></div><p style="color:var(--muted);font-size:14px">Test week takes every set in week 1 to 0–1 reps in reserve, close to failure, so the app measures your real strength instead of relying on a guess at 3. The last week is a deload.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="mesocreate">Start</button></div>')},
+mesocreate(){const tid=$('#f_mt').value,t=S.templates.find(z=>z.id===tid);
+  if(tid&&(!t||!t.days.length)){toast('That template has no days');return}
+  const days=t?clone(t.days).sort((a,b)=>a.weekday-b.weekday):blankDays(+$('#f_md').value);
+  const m={id:rid(),name:$('#f_mn').value.trim()||(t?t.name:'New block'),weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days,sessions:{},created:Date.now(),template:t?t.name:'Blank',style:$('#f_mr').value==='test'?'test':'std'};
+  if(!t)m.blank=true;
   S.mesos.push(m);S.activeMeso=m.id;mark('core','meso:'+m.id);gotoPending();ui.tab='workout';closeSheet();render();window.scrollTo(0,0)},
 activate(el){S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
 openmeso(el){S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
@@ -999,6 +1007,7 @@ document.addEventListener('change',e=>{
     confirmSheet('Convert to '+to+'?','Every weight you have entered is converted: logged and planned sets, bodyweight and bar weights. Weight steps '+(to==='kg'?'halve (5 lb becomes 2.5 kg)':'double (2.5 kg becomes 5 lb)')+'. Switching back restores your logged numbers exactly.','dounit')}
   else if(k==='bw'){const v=num(el.value);if(v>0){S.prefs.bw=v;mark('core')}}
   else if(k==='bar'){const v=num(el.value);if(v!=null&&v>=0){S.prefs.bar=v;mark('core')}}
+  else if(k==='mtpl'){$('#w_md').hidden=!!el.value}
   else if(k==='barload'){S.prefs.barLoad=el.value;mark('core')}
   else if(k==='cx'){ui.cx=el.value;ui.chart=null;render()}
   else if(k==='import'){const f=el.files&&el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.exercises)||!Array.isArray(d.mesos||[]))throw 0;ui.imp=d;confirmSheet('Replace your data?','This backup has '+(d.mesos||[]).length+' mesocycles and '+(d.templates||[]).length+' templates. Importing replaces everything you have now.','doimport')}catch(err){toast('That file is not a Meso Log backup')}};r.readAsText(f);el.value=''}

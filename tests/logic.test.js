@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay
 };`);
 
 let ok = 0, bad = 0;
@@ -196,6 +196,19 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   eq([back.prefs.bar, back.exercises[0].inc, back.exercises[1].inc, back.exercises[0].bar], [45, 5, 2.5, 35], 'settings round-trip');
   eq(T.planLoad({ lo: 8, hi: 12, inc: 2.5 }, { tot: 61.2349, r: 8, rir: 3 }, 2, false).w, 61.25, 'suggestions after a switch snap to 0.25');
   const same = mk(); T.convertUnits(same, 'lb'); eq(same.mesos[0].sessions['1-0'].exs[0].sets[0].w, 135, 'same unit is a no-op'); }
+
+// ---- blank mesocycles ----
+eq(T.blankDays(3).map(d => [d.name, d.weekday, d.items.length]), [['Day 1', 0, 0], ['Day 2', 2, 0], ['Day 3', 4, 0]], 'blank days spread over the week');
+eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7], 'any number of days');
+{ T.S = T.seedState(); T.normalize();
+  const bm = { id: 'b', name: 'b', weeks: 4, start: '2026-11-02', days: T.blankDays(2), sessions: {}, created: 3, template: 'Blank', blank: true };
+  T.S.mesos.push(bm);
+  const s1 = T.buildSession(bm, 1, 0); eq(s1.exs.length, 0, 'blank day starts empty');
+  s1.exs.push(T.makeEx(bm, 1, 0, 'bench-press-barbell', 3), T.makeEx(bm, 1, 0, 'barbell-row', 4)); T.syncDay(bm, s1);
+  eq(T.buildSession(bm, 2, 0).exs.map(x => [x.exId, x.sets.length]), [['bench-press-barbell', 3], ['barbell-row', 4]], 'added exercises carry to next week');
+  eq(T.buildSession(bm, 2, 1).exs.length, 0, 'other days are unaffected');
+  s1.exs.reverse(); T.syncDay(bm, s1); eq(bm.days[0].items.map(i => i.exId), ['barbell-row', 'bench-press-barbell'], 'order carries too');
+  const tm = { days: [{ items: [{ exId: 'x', sets: 3 }] }] }; T.syncDay(tm, { di: 0, exs: [] }); eq(tm.days[0].items.length, 1, 'template blocks never change their days'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);

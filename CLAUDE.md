@@ -34,7 +34,7 @@ S = {
   prefs: { unit: 'lb', bw: 200, bar: 45, barLoad: 'total', needsSetup? },   // needsSetup = show the Welcome sheet (new users only)   // bw = bodyweight, bar = default bar, barLoad = 'side' | 'total' for barbell exercises
   exercises: [{ id, name, muscle, equip, lo, hi, inc, bw, load?, bar? }],   // lo-hi rep range, inc = weight step in ENTERED units
   templates: [{ id, name, days: [{ name, weekday, items: [{ exId, sets }] }] }],
-  mesos: [{ id, name, weeks, start, days, sessions, created, template, style }],   // style 'std' (default) | 'test'
+  mesos: [{ id, name, weeks, start, days, sessions, created, template, style, blank? }],   // style 'std' (default) | 'test'; blank = started with no template
   activeMeso: id | null,
   track: { [muscleId]: { workedOn, status: 'open'|'healed', asked: [{d, sore}], lastAsked, healedOn } }
 }
@@ -45,7 +45,7 @@ S = {
           sets: [{ w, r, pw, pr, done, ty? }] }] }  // w/r = current, pw/pr = planned (used to dim untouched reps), ty = 'myo' | 'match' (absent = regular)
 ```
 
-A mesocycle copies its template's days when it starts, so later template edits never change a running block. The last week of a mesocycle is the deload.
+A mesocycle copies its template's days when it starts, so later template edits never change a running block. A blank mesocycle (`blank: true`, days from `blankDays(n)`) starts with empty days; `syncDay` copies each workout's exercise list (add, replace, remove, reorder) back into `m.days[di].items`, so it carries to later weeks. Template mesocycles never sync. The last week of a mesocycle is the deload.
 
 ## Rules (all in script block 1)
 
