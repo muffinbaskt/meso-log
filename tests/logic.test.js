@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups
 };`);
 
 let ok = 0, bad = 0;
@@ -297,6 +297,19 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   T.applyMuscle(m, s, 'quads'); eq(s.exs[0].sets.length, 10, 'set adjustments never change interval rounds');
   const m2 = { ...m, id: 'iv2', created: 10, sessions: {} }; T.S.mesos.push(m2);
   eq(tot(T.buildSession(m2, 1, 0).exs[0]), 108, 'the next mesocycle picks up where the last one finished'); }
+
+// ---- supersets ----
+eq(T.ssGroups([{}, { ss: true }, {}, {}]), [[0], [1, 2], [3]], 'a link joins an exercise to the next');
+eq(T.ssGroups([{ ss: true }, { ss: true }, {}]), [[0, 1, 2]], 'links chain into a circuit');
+eq(T.ssGroups([{}, { ss: true }]), [[0], [1]], 'a link on the last exercise does nothing');
+eq(T.ssGroups([{ ss: true }, { ivl: true }]), [[0], [1]], 'interval exercises never link');
+{ T.S = T.seedState(); T.normalize();
+  const m = { id: 'ss', name: 'ss', weeks: 4, start: '2026-11-02', days: [{ name: 'D', weekday: 0, items: [{ exId: 'push-up', sets: 3, ss: true }, { exId: 'goblet-squat', sets: 3 }] }], sessions: {}, created: 11, template: 'x' };
+  T.S.mesos.push(m);
+  const s1 = T.buildSession(m, 1, 0); eq(T.ssGroups(s1.exs), [[0, 1]], 'a linked day item builds a linked session');
+  eq(T.ssGroups(T.buildSession(m, 3, 0).exs), [[0, 1]], 'and stays linked in later weeks');
+  const b = { id: 'sb', blank: true, days: [{ items: [] }] }; T.syncDay(b, { di: 0, exs: [{ exId: 'a', base: 3, sets: [], ss: true }, { exId: 'b', base: 3, sets: [] }] });
+  eq(b.days[0].items, [{ exId: 'a', sets: 3, ss: true }, { exId: 'b', sets: 3 }], 'blank days remember links'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);

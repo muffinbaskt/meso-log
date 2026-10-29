@@ -76,6 +76,7 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .chip.hot{background:var(--accent-soft);color:var(--accent)}
 
 /* muscle badge */
+.mb+.mb{margin-left:6px}
 .mb{display:inline-flex;align-items:center;gap:7px;margin:18px 0 8px;padding:3px 10px 3px 8px;border-radius:6px;font-family:var(--font-display);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase;
   background:hsl(var(--h) 45% var(--mb-bg-l));color:hsl(var(--h) 70% var(--mb-fg-l));border:1px solid hsl(var(--h) 50% calc(var(--mb-bg-l) + 12%))}
 .mb i{display:flex;gap:2px}
@@ -118,6 +119,15 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .rnd.done small{color:inherit;opacity:.7}
 .rnd.miss{border-color:var(--bad);color:var(--bad)}
 .ivlsum{color:var(--muted);font-size:13px;margin:6px 0 8px}
+.ex.ss{box-shadow:inset 3px 0 0 var(--accent)}
+.sslabel{font-family:var(--font-display);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:6px}
+.ssmem+.ssmem{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.sstag{display:inline-block;margin-right:8px;padding:1px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:.8em;vertical-align:2px}
+.ssr{margin-top:6px}
+.ssrh{display:flex;justify-content:space-between;align-items:center;padding:8px 0 2px;border-top:1px solid var(--line);font-size:13px;font-weight:600;color:var(--muted)}
+.sslog{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:8px;border:1.5px solid var(--ok);color:var(--ok);font-weight:600;font-size:13px}
+.sslog svg{width:14px;height:14px}
+.ssok{color:var(--ok)}
 .set .chartb.up{color:var(--ok)}
 .set .chartb.down{color:var(--bad)}
 .row-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:12px;background:var(--surface);color:var(--accent);font-weight:600;margin-top:6px}
@@ -163,6 +173,8 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .trow .nm{flex:1;min-width:0;font-weight:500}
 .trow .nm small{display:block;color:var(--muted);font-size:12px}
 .mini{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.mini.on{background:var(--accent-soft);color:var(--accent)}
+.tss{font-size:12px;font-weight:600;color:var(--accent);padding:0 0 4px;letter-spacing:.04em;text-transform:uppercase}
 .mini svg{width:18px;height:18px}
 .mini:active{background:var(--surface2)}
 
@@ -773,6 +785,13 @@ function ivlEx(e,m,o,dl){
   const tg=dl?Array(Math.max(1,Math.ceil(R*0.6))).fill(prev?Math.min(...prev.map(t=>t.pr)):e.ivl.reps):ivlNext(prev,R,e.ivl.reps);
   return {exId:e.id,note:'',ivl:true,secs:e.ivl.secs||60,base:tg.length,planned:tg.length,joint:null,swap:false,sets:tg.map(r=>({w:null,r,pw:null,pr:r,done:false}))};
 }
+/* Supersets: x.ss (and day/template item .ss) links an exercise to the one after it. A run of links is one group.
+   Interval exercises never link. Returns arrays of exercise indexes. */
+function ssGroups(exs){
+  const out=[];
+  for(let i=0;i<exs.length;i++){const g=[i];while(exs[i].ss&&i+1<exs.length&&!exs[i].ivl&&!exs[i+1].ivl)g.push(++i);out.push(g)}
+  return out;
+}
 /* Today's bodyweight. Session exercises that use bodyweight keep it in abw; bodyweight-only sets show it as their weight. */
 const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
 // A new bodyweight keeps each unlogged set's total load: bodyweight-only sets take the new weight, added weight shrinks
@@ -786,10 +805,10 @@ function setBodyweight(s,v){
 /* Blank mesocycles: days start empty, and the exercises in a day's workout become that day's plan for later weeks. */
 const BLANK_WD={1:[0],2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
 function blankDays(n){return BLANK_WD[n].map((wd,i)=>({name:'Day '+(i+1),weekday:wd,items:[]}))}
-function syncDay(m,s){if(m&&m.blank)m.days[s.di].items=s.exs.map(x=>({exId:x.exId,sets:x.base||x.sets.length}))}
+function syncDay(m,s){if(m&&m.blank)m.days[s.di].items=s.exs.map(x=>({exId:x.exId,sets:x.base||x.sets.length,...(x.ss?{ss:true}:{})}))}
 function buildSession(m,wk,di){
   const day=m.days[di];
-  return {wk,di,key:wk+'-'+di,exs:day.items.filter(i=>ex(i.exId)).map(i=>makeEx(m,wk,di,i.exId,i.sets)),fb:{},done:false,date:null};
+  return {wk,di,key:wk+'-'+di,exs:day.items.filter(i=>ex(i.exId)).map(i=>Object.assign(makeEx(m,wk,di,i.exId,i.sets),i.ss?{ss:true}:{})),fb:{},done:false,date:null};
 }
 function nextPending(m){
   for(let wk=1;wk<=m.weeks;wk++)for(let di=0;di<m.days.length;di++){const s=m.sessions[wk+'-'+di];if(!s||!s.done)return {wk,di}}
@@ -908,6 +927,7 @@ async function deleteAccount(){ok(await sb.rpc('delete_my_account'));await sb.au
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n==null||n===''?'':String(Math.round(n*100)/100);
+const EQUIP=[['Barbell','Barbell'],['Dumbbell','Dumbbell'],['Cable','Cable'],['Machine','Machine'],['Smith Machine','Smith machine'],['Freemotion','Freemotion'],['Bodyweight','Bodyweight only',1],['Bodyweight + weight','Bodyweight + added weight',3],['Assisted machine','Machine assistance',2]];
 const SET_TY={
  reg:{name:'Regular',short:'',desc:'One straight set. Aim for the rep target at this week’s reps in reserve.'},
  myo:{name:'Myorep',short:'M',desc:'Short mini-sets with 5 to 15 seconds of rest between them, aiming for the same target. Log the total reps.'},
@@ -927,6 +947,7 @@ const I={
  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4V20.5H6z"/><path d="M12 11v5M9.5 13.5h5"/></svg>',
+ link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
  swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
  skip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l9 7-9 7zM18 5v14"/></svg>',
  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>',
@@ -939,7 +960,9 @@ const I={
 };
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
 function sheet(html){$('#sheet').innerHTML='<div class="scrim" data-act="close"></div><div class="panel" role="dialog" aria-modal="true"><button class="x" data-act="close" aria-label="Close">'+I.x+'</button>'+html+'</div>';$('#sheet').hidden=false}
-function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML=''}
+function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML='';if(ui.pq&&ui.pq.length)setTimeout(pqNext,0)}
+// Runs queued actions one at a time, pausing while a sheet (feedback question) is open.
+function pqNext(){while(ui.pq&&ui.pq.length&&$('#sheet').hidden)ui.pq.shift()()}
 const unit=()=>S.prefs.unit||'lb';
 const badge=(mu,flat)=>{const m=MUS[mu];return '<div class="mb'+(flat?' flat':'')+'" style="--h:'+m.hue+'"><i><b></b><b></b><b></b></i>'+esc(m.name)+'</div>'};
 
@@ -974,25 +997,35 @@ function viewWorkout(){
   const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=ui.wk===m.weeks,c=sessCounts(s);
   let h='<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div><button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
   h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>'+(s.done?'<span class="chip">Finished '+esc(s.date||'')+'</span>':'')+'</div>';
-  let last=null;
-  s.exs.forEach((x,ei)=>{
-    const e=ex(x.exId),mu=e.muscle;
-    if(mu!==last){h+=badge(mu);last=mu}
-    h+='<section class="ex" data-ei="'+ei+'">'+(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+esc(e.name)+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
-    if(x.swap)h+='<div class="flag">Severe joint pain last time. Consider replacing this exercise.</div>';
-    if(x.note)h+='<div class="note">'+esc(x.note)+'</div>';
-    if(x.ivl){const tot=x.sets.reduce((a,t)=>a+(t.done?t.r:t.pr),0);
-      h+='<div class="ivl">'+x.sets.map((t,si)=>'<button class="rnd'+(t.done?(t.r<t.pr?' miss':' done'):'')+'" data-act="ivtap" data-si="'+si+'" aria-label="Round '+(si+1)+', '+(t.done?t.r+' reps logged':t.pr+' reps')+'"><small>'+(si+1)+'</small><b>'+(t.done?t.r:t.pr)+'</b></button>').join('')+'</div><p class="ivlsum">'+tot+' reps · tap a round when it is done</p></section>';return}
-    h+='<div class="cols"><span></span><span>'+(x.plus?'Added':x.assist?'Assist':'Weight')+'</span><span>Reps</span><span></span><span>Log</span></div>';
-    x.sets.forEach((t,si)=>{
-      h+='<div class="set'+(t.done?' done':'')+'" data-ei="'+ei+'" data-si="'+si+'">'+(t.ty?'<button class="ib stl" data-act="setmenu" aria-label="'+SET_TY[t.ty].name+' set. Set menu">'+SET_TY[t.ty].short+'</button>':'<button class="ib" data-act="setmenu" aria-label="Set menu">'+I.kebab+'</button>')
+  let last=null,letter=0;
+  const head=(x,ei,tag)=>{const e=ex(x.exId);
+    let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
+    if(x.swap)o+='<div class="flag">Severe joint pain last time. Consider replacing this exercise.</div>';
+    if(x.note)o+='<div class="note">'+esc(x.note)+'</div>';
+    return o};
+  const row=(x,ei,t,si,tag)=>'<div class="set'+(t.done?' done':'')+'" data-ei="'+ei+'" data-si="'+si+'">'+(tag?'<button class="ib stl" data-act="setmenu" aria-label="'+tag+' set menu">'+tag+'</button>':t.ty?'<button class="ib stl" data-act="setmenu" aria-label="'+SET_TY[t.ty].name+' set. Set menu">'+SET_TY[t.ty].short+'</button>':'<button class="ib" data-act="setmenu" aria-label="Set menu">'+I.kebab+'</button>')
        +'<input inputmode="decimal" enterkeyhint="done" data-chg="setw" value="'+fmt(t.w)+'" placeholder="–" aria-label="Weight">'
        +'<input inputmode="numeric" enterkeyhint="done" data-chg="setr" class="'+(!t.done&&t.r===t.pr?'dim':'')+'" value="'+fmt(t.r)+'" placeholder="–" aria-label="Reps">'
        +((v=>v?'<button class="ib chartb '+v+'" data-act="exchart" aria-label="'+(v==='up'?'Beat':'Below')+' the plan. Progress chart">'+(v==='up'?I.chart:I.chartDown)+'</button>':'<span></span>')(vsPlan(x,t,ui.wk)))
        +'<button class="logb" data-act="log" aria-label="Log set">'+I.check+'</button></div>';
-    });
+  for(const g of ssGroups(s.exs)){
+    for(const ei of g){const mu=ex(s.exs[ei].exId).muscle;if(mu!==last){h+=badge(mu);last=mu}}
+    if(g.length>1){   // superset: one card, sets interleaved by round
+      const L=String.fromCharCode(65+letter++),xs=g.map(ei=>s.exs[ei]),n=Math.max(...xs.map(x=>x.sets.length));
+      h+='<section class="ex ss"><div class="sslabel">Superset</div>'+g.map((ei,k)=>'<div class="ssmem" data-ei="'+ei+'">'+head(s.exs[ei],ei,L+(k+1))+'</div>').join('');
+      h+='<div class="cols"><span></span><span>Weight</span><span>Reps</span><span></span><span>Log</span></div>';
+      for(let si=0;si<n;si++){const here=g.filter(ei=>s.exs[ei].sets[si]),all=here.every(ei=>s.exs[ei].sets[si].done);
+        h+='<div class="ssr"><div class="ssrh"><span>Round '+(si+1)+'</span>'+(all?'<span class="ssok">Done</span>':'<button class="sslog" data-act="sslog" data-eis="'+here.join(',')+'" data-si="'+si+'">'+I.check+'Log round</button>')+'</div>'
+          +here.map(ei=>row(s.exs[ei],ei,s.exs[ei].sets[si],si,L+(g.indexOf(ei)+1))).join('')+'</div>'}
+      h+='</section>';continue}
+    const ei=g[0],x=s.exs[ei];
+    h+='<section class="ex" data-ei="'+ei+'">'+head(x,ei);
+    if(x.ivl){const tot=x.sets.reduce((a,t)=>a+(t.done?t.r:t.pr),0);
+      h+='<div class="ivl">'+x.sets.map((t,si)=>'<button class="rnd'+(t.done?(t.r<t.pr?' miss':' done'):'')+'" data-act="ivtap" data-si="'+si+'" aria-label="Round '+(si+1)+', '+(t.done?t.r+' reps logged':t.pr+' reps')+'"><small>'+(si+1)+'</small><b>'+(t.done?t.r:t.pr)+'</b></button>').join('')+'</div><p class="ivlsum">'+tot+' reps · tap a round when it is done</p></section>';continue}
+    h+='<div class="cols"><span></span><span>'+(x.plus?'Added':x.assist?'Assist':'Weight')+'</span><span>Reps</span><span></span><span>Log</span></div>';
+    x.sets.forEach((t,si)=>{h+=row(x,ei,t,si)});
     h+='</section>';
-  });
+  }
   if(!s.exs.length)h+='<div class="empty">'+(m.blank?'This day is empty. Add exercises and they carry over to this day every week.':'No exercises on this day.')+'</div>';
   h+='<button class="row-btn quiet" data-act="addex" style="margin-top:14px">'+I.plus+'Add exercise</button>';
   if(!s.done)h+='<button class="row-btn main" data-act="finish" style="margin-top:14px">Finish workout</button>';
@@ -1023,7 +1056,7 @@ function viewTplEdit(t){
   t.days.forEach((d,di)=>{
     h+='<div class="dayc" data-di="'+di+'"><div class="two"><div class="field" style="margin:0"><label>Day name</label><input class="in" data-chg="dayname" value="'+esc(d.name)+'"></div><div class="field" style="margin:0"><label>Weekday</label><select class="in" data-chg="dayweekday">'+WD.map((w,i)=>'<option value="'+i+'"'+(i===d.weekday?' selected':'')+'>'+w+'</option>').join('')+'</select></div></div>';
     d.items.forEach((it,ii)=>{const e=ex(it.exId);if(!e)return;
-      h+='<div class="trow" data-ii="'+ii+'"><div class="nm">'+esc(e.name)+'<small>'+esc(MUS[e.muscle].name)+'</small></div><div class="stepper"><button data-act="tdec" aria-label="Fewer sets">−</button><span class="num">'+it.sets+'</span><button data-act="tinc" aria-label="More sets">+</button></div><button class="mini" data-act="tup" aria-label="Move up">'+I.up+'</button><button class="mini" data-act="tdn" aria-label="Move down">'+I.down+'</button><button class="mini" data-act="trm" aria-label="Remove">'+I.x+'</button></div>'});
+      h+='<div class="trow" data-ii="'+ii+'"><div class="nm">'+esc(e.name)+'<small>'+esc(MUS[e.muscle].name)+'</small></div><div class="stepper"><button data-act="tdec" aria-label="Fewer sets">−</button><span class="num">'+it.sets+'</span><button data-act="tinc" aria-label="More sets">+</button></div><button class="mini" data-act="tup" aria-label="Move up">'+I.up+'</button><button class="mini" data-act="tdn" aria-label="Move down">'+I.down+'</button><button class="mini" data-act="trm" aria-label="Remove">'+I.x+'</button>'+(ii<d.items.length-1?'<button class="mini'+(it.ss?' on':'')+'" data-act="tlink" aria-pressed="'+!!it.ss+'" aria-label="Superset with next">'+I.link+'</button>':'<span class="mini"></span>')+'</div>'+(it.ss&&ii<d.items.length-1?'<div class="tss">Superset with next</div>':'')});
     h+='<div class="acts" style="display:flex;gap:8px;margin-top:10px"><button class="btn" data-act="tadd">'+I.plus+'Exercise</button><button class="btn bad" data-act="tdelday">Remove day</button></div></div>';
   });
   h+='<button class="row-btn quiet" data-act="taddday" style="margin-top:12px">'+I.plus+'Add day</button><div class="acts" style="display:flex;gap:8px;margin-top:18px"><button class="btn" data-act="tdup">Duplicate</button><button class="btn bad" data-act="tdel">Delete template</button></div></div>';
@@ -1238,14 +1271,25 @@ function openPicker(pick,title){
 
 /* forms */
 function exForm(e){
-  e=e||{id:null,name:'',muscle:'chest',equip:'',lo:8,hi:12,inc:5,bw:false};const iv=e.ivl||{rounds:10,reps:10,secs:60};
-  sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="field"><label for="f_ty">Type</label><select id="f_ty" class="in" data-chg="exty"><option value="sets"'+(e.ivl?'':' selected')+'>Sets</option><option value="ivl"'+(e.ivl?' selected':'')+'>Interval (every minute on the minute)</option></select></div><div id="w_ivl"'+(e.ivl?'':' hidden')+'><div class="two"><div class="field"><label for="f_ivn">Rounds</label><input id="f_ivn" class="in" inputmode="numeric" value="'+iv.rounds+'"></div><div class="field"><label for="f_ivp">Starting reps per round</label><input id="f_ivp" class="in" inputmode="numeric" value="'+iv.reps+'"></div></div><div class="field"><label for="f_ivs">Seconds per round</label><input id="f_ivs" class="in" inputmode="numeric" value="'+iv.secs+'"></div><p style="color:var(--muted);font-size:14px;margin:6px 0 0">Time stays the same. After a week where you hit every round, the last 2 more rounds get +1 rep. When every round has it, the base goes up by 1.</p></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eq">Equipment</label><input id="f_eq" class="in" value="'+esc(e.equip)+'"></div></div><div id="w_sets"'+(e.ivl?' hidden':'')+'><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div><div class="field"><label for="f_bw">Bodyweight exercise</label><select id="f_bw" class="in"><option value="0"'+(e.bw||e.assist?'':' selected')+'>No</option><option value="1"'+(e.bw&&!e.plus?' selected':'')+'>Yes</option><option value="3"'+(e.plus?' selected':'')+'>Yes, plus added weight</option><option value="2"'+(e.assist?' selected':'')+'>Assisted machine</option></select></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
+  e=e||{id:null,name:'',muscle:'chest',equip:'',lo:8,hi:12,inc:5,bw:false};const iv=e.ivl||{rounds:10,reps:10,secs:60},eqv=!e.id&&!e.equip?'Barbell':EQUIP.some(q=>q[0]===e.equip)?e.equip:'custom';
+  sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="field"><label for="f_ty">Type</label><select id="f_ty" class="in" data-chg="exty"><option value="sets"'+(e.ivl?'':' selected')+'>Sets</option><option value="ivl"'+(e.ivl?' selected':'')+'>Interval (every minute on the minute)</option></select></div><div id="w_ivl"'+(e.ivl?'':' hidden')+'><div class="two"><div class="field"><label for="f_ivn">Rounds</label><input id="f_ivn" class="in" inputmode="numeric" value="'+iv.rounds+'"></div><div class="field"><label for="f_ivp">Starting reps per round</label><input id="f_ivp" class="in" inputmode="numeric" value="'+iv.reps+'"></div></div><div class="field"><label for="f_ivs">Seconds per round</label><input id="f_ivs" class="in" inputmode="numeric" value="'+iv.secs+'"></div><p style="color:var(--muted);font-size:14px;margin:6px 0 0">Time stays the same. After a week where you hit every round, the last 2 more rounds get +1 rep. When every round has it, the base goes up by 1.</p></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eqs">Equipment</label><select id="f_eqs" class="in" data-chg="exeq">'+EQUIP.map(q=>'<option value="'+esc(q[0])+'"'+(q[0]===eqv?' selected':'')+'>'+esc(q[1])+'</option>').join('')+'<option value="custom"'+(eqv==='custom'?' selected':'')+'>Custom…</option></select><input id="f_eq" class="in" placeholder="Name it, e.g. Hammer Strength" value="'+(eqv==='custom'?esc(e.equip):'')+'" style="margin-top:6px"'+(eqv==='custom'?'':' hidden')+'></div></div><div id="w_sets"'+(e.ivl?' hidden':'')+'><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
 }
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
 
 /* ---------- action handlers ---------- */
 const ACT={
 close(){closeSheet()},
+sslog(el){const s=curSession(),si=+el.dataset.si,eis=el.dataset.eis.split(',').map(Number).filter(ei=>!s.exs[ei].sets[si].done);
+  for(const ei of eis){const x=s.exs[ei],t=x.sets[si];if(!(t.r>0)||!(t.w>0||((x.plus||x.assist)&&t.w===0))){toast('Enter weight and reps for '+ex(x.exId).name);return}}
+  ui.pq=(ui.pq||[]).concat(eis.map(ei=>()=>{if(curSession()===s&&!s.exs[ei].sets[si].done)toggleSet(ei,si)}));pqNext()},
+xlink(){const s=curSession(),m=meso(),x=s.exs[ui.ei],nx=s.exs[ui.ei+1];
+  if(!x.ss&&(!nx||x.ivl||nx.ivl)){toast(!nx?'Add the next exercise first':'Interval exercises can not be in a superset');return}
+  if(x.ss)delete x.ss;else x.ss=true;
+  const items=m.days[s.di].items,it=items[ui.ei]&&items[ui.ei].exId===x.exId?items[ui.ei]:items.find(i=>i.exId===x.exId);
+  if(it){if(x.ss)it.ss=true;else delete it.ss}
+  syncDay(m,s);commit(s);closeSheet();render()},
+tlink(el){const t=S.templates.find(z=>z.id===ui.tpl),d=+el.closest('[data-di]').dataset.di,i=+el.closest('[data-ii]').dataset.ii,it=t.days[d].items[i];
+  if(it.ss)delete it.ss;else it.ss=true;mark('core');render()},
 ivtap(el){const ei=+el.closest('[data-ei]').dataset.ei,si=+el.dataset.si,x=curSession().exs[ei],t=x.sets[si];
   if(!t.done){toggleSet(ei,si);return}
   ui.ei=ei;ui.si=si;sheet('<h2>Round '+(si+1)+'</h2><div class="field"><label for="f_ivr">Reps done (target '+t.pr+')</label><input id="f_ivr" class="in" inputmode="numeric" value="'+t.r+'"></div><p style="color:var(--muted)">If you fall short of the target, next week repeats this plan instead of adding reps.</p><div class="foot"><button class="btn" data-act="ivundo">Not done</button><button class="btn pri" data-act="ivsave">Save</button></div>')},
@@ -1285,7 +1329,8 @@ fbp(el){pickOpt(el);ui.fb.pump=+el.dataset.v;$('#fbsave').disabled=!postReady()}
 fbv(el){pickOpt(el);ui.fb.vol=+el.dataset.v;$('#fbsave').disabled=!postReady()},
 fbsavepost(){const s=curSession(),mu=ui.fb.mu,xs=s.exs.filter(x=>muscleOf(x)===mu);xs.forEach((x,i)=>{x.joint=ui.fb.joint[i]});s.fb[mu]=s.fb[mu]||{};Object.assign(s.fb[mu],{pump:ui.fb.pump,vol:ui.fb.vol,post:true});commit(s);closeSheet();render()},
 /* exercise menu */
-exmenu(el){const c=ctx(el);ui.ei=c.ei;sheet('<h2>Exercise</h2><div class="menu">'
+exmenu(el){const c=ctx(el);ui.ei=c.ei;const s=curSession(),x=s.exs[ui.ei],nx=s.exs[ui.ei+1],linked=x.ss&&nx;sheet('<h2>Exercise</h2><div class="menu">'
+  +(linked||(nx&&!x.ivl&&!nx.ivl)?'<button class="li" data-act="xlink">'+I.link+'<div><b>'+(linked?'Unlink superset':'Superset with next exercise')+'</b><small>'+(linked?'Separate from ':'Alternate sets with ')+esc(ex(nx.exId).name)+'</small></div></button>':'')
   +'<button class="li" data-act="xnote">'+I.note+'New note</button><button class="li" data-act="xup">'+I.up+'Move up</button><button class="li" data-act="xdn">'+I.down+'Move down</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
 xnote(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Note</h2><div class="field"><label for="f_note">Note for this exercise</label><textarea id="f_note" class="in">'+esc(x.note)+'</textarea></div><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="xnotesave">Save</button></div>')},
 xnotesave(){const s=curSession();s.exs[ui.ei].note=$('#f_note').value.trim();commit(s);closeSheet();render()},
@@ -1356,7 +1401,11 @@ newex(){exForm()},
 editex(el){exForm(ex(el.dataset.id))},
 exsave(el){const name=$('#f_name').value.trim();if(!name){toast('Give it a name');return}
   const lo=Math.max(1,parseInt($('#f_lo').value)||8),hi=Math.max(lo,parseInt($('#f_hi').value)||12),inc=num($('#f_inc').value)||5;
-  const d={name,muscle:$('#f_mu').value,equip:$('#f_eq').value.trim(),lo,hi,inc,ivl:$('#f_ty').value==='ivl'?{rounds:Math.max(1,parseInt($('#f_ivn').value)||10),reps:Math.max(1,parseInt($('#f_ivp').value)||10),secs:Math.max(5,parseInt($('#f_ivs').value)||60)}:undefined,bw:['1','3'].includes($('#f_bw').value),plus:$('#f_bw').value==='3',assist:$('#f_bw').value==='2',load:$('#f_ld').value,bar:num($('#f_bar').value)||0};
+  // Listed equipment decides bodyweight behaviour. Custom equipment is loaded weight (an older exercise keeps what it had).
+  const eqSel=$('#f_eqs').value,eqI=EQUIP.find(q=>q[0]===eqSel),e0=el.dataset.id&&ex(el.dataset.id);
+  const kind=eqI?String(eqI[2]||0):e0?(e0.assist?'2':e0.plus?'3':e0.bw?'1':'0'):'0';
+  if(eqSel==='custom'&&!$('#f_eq').value.trim()){toast('Name the equipment');return}
+  const d={name,muscle:$('#f_mu').value,equip:eqSel==='custom'?$('#f_eq').value.trim():eqSel,lo,hi,inc,ivl:$('#f_ty').value==='ivl'?{rounds:Math.max(1,parseInt($('#f_ivn').value)||10),reps:Math.max(1,parseInt($('#f_ivp').value)||10),secs:Math.max(5,parseInt($('#f_ivs').value)||60)}:undefined,bw:['1','3'].includes(kind),plus:kind==='3',assist:kind==='2',load:$('#f_ld').value,bar:num($('#f_bar').value)||0};
   if(!d.ivl)delete d.ivl;if(el.dataset.id){const e0=ex(el.dataset.id);if(!d.ivl)delete e0.ivl;Object.assign(e0,d)}else{let id=idOf(name);while(ex(id))id+='-'+rid().slice(0,3);S.exercises.push({id,...d})}
   mark('core');closeSheet();render()},
 exdel(el){const id=el.dataset.id;if(S.templates.some(t=>t.days.some(d=>d.items.some(i=>i.exId===id)))){toast('Remove it from your templates first');return}
@@ -1408,6 +1457,7 @@ document.addEventListener('change',e=>{
     confirmSheet('Convert to '+to+'?','Every weight you have entered is converted: logged and planned sets, bodyweight and bar weights. Weight steps '+(to==='kg'?'halve (5 lb becomes 2.5 kg)':'double (2.5 kg becomes 5 lb)')+'. Switching back restores your logged numbers exactly.','dounit')}
   else if(k==='bw'){const v=num(el.value);if(v>0){S.prefs.bw=v;mark('core')}}
   else if(k==='bar'){const v=num(el.value);if(v!=null&&v>=0){S.prefs.bar=v;mark('core')}}
+  else if(k==='exeq'){const c=el.value==='custom';$('#f_eq').hidden=!c;if(c)$('#f_eq').focus()}
   else if(k==='exty'){$('#w_ivl').hidden=el.value!=='ivl';$('#w_sets').hidden=el.value==='ivl'}
   else if(k==='mtpl'){$('#w_md').hidden=!!el.value}
   else if(k==='barload'){S.prefs.barLoad=el.value;mark('core')}
