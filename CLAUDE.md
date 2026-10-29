@@ -58,6 +58,13 @@ A mesocycle copies its template's days when it starts, so later template edits n
 - **Weight entry:** exercises can record weight as total, or as the weight on ONE end. `loadMode(e)` resolves it (exercise override, else `prefs.barLoad` for barbell exercises). Per-end total = bar + 2 x entered. All comparison, e1RM and progression run on total weight, and steps are `inc` per end (2 x inc total). Each session exercise stores `side` and `bar` so history stays correct if the exercise setting changes later. The exercise menu's "Weight entry" converts the sets already in the workout so the total is preserved.
 - **Soreness check-ins:** logging a muscle calls `trackWorked`. From the next day `dueSoreness()` lists open muscles and the app asks "still sore?" (sheet on open once per day, plus a banner). Yes = ask again tomorrow. No = `healed`, no more questions until trained again. `deriveSoreness()` turns the history into the 0 to 3 soreness rating, so the manual prompt only shows when no history exists.
 
+## Hosting and email
+
+- Live at https://bbqsauce.fit, served by GitHub Pages from `main` (repo `muffinbaskt/meso-log`, public). Pushing to `main` deploys. `CNAME` holds the domain. `www` and `http` redirect.
+- Domain registered at Porkbun. DNS there: GitHub Pages A/AAAA records, `www` CNAME, GitHub verification TXT, and Resend's records (`resend._domainkey`, `rsend`, `send`, `_dmarc`).
+- Sign-in emails go through Resend (custom SMTP in Supabase, sender `login@bbqsauce.fit`). Supabase redirect URLs list `https://bbqsauce.fit/**` and localhost.
+- `docs/reference/*.png` are gitignored on purpose: RP screenshots must never be published.
+
 ## Storage
 
 - Always mirrors to `localStorage` key `meso-log-v1`. `meso-log-owner` records which account the device copy belongs to, `meso-log-mode` = `local` means the user chose "Use without an account".
