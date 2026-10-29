@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits
 };`);
 
 let ok = 0, bad = 0;
@@ -177,6 +177,25 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   mm.sessions['1-0'].exs[0].sets[1].ty = 'match';
   const nx = T.makeEx(mm, 2, 0, exId, 3);
   eq(nx.sets.map(t => t.ty), ['myo', 'match'], 'types carry to the same sets next week'); }
+
+// ---- lb / kg conversion ----
+{ const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
+    exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',
+    mesos: [{ id: 'm', sessions: { '1-0': { exs: [{ exId: 'a', side: true, bar: 45, sets: [{ w: 135, r: 8, pw: 135, pr: 8, done: true }, { w: null, r: 8, pw: null, pr: 8 }] }] } } }] });
+  const st = T.convertUnits(mk(), 'kg'), x = st.mesos[0].sessions['1-0'].exs[0];
+  eq(st.prefs.unit, 'kg', 'unit switches');
+  eq(Math.round(x.sets[0].w * 100) / 100, 61.23, '135 lb logged becomes 61.23 kg');
+  eq(Math.round(st.prefs.bw * 10) / 10, 81.6, 'bodyweight converts');
+  eq([st.prefs.bar, st.exercises[0].bar], [20, 15], 'standard bars swap 45 to 20, 35 to 15');
+  eq(Math.round(st.exercises[2].bar * 100) / 100, 22.68, 'non-standard bar converts exactly');
+  eq([st.exercises[0].inc, st.exercises[1].inc], [2.5, 1.25], 'weight steps halve');
+  eq(x.sets[1].w, null, 'empty weights stay empty');
+  eq(Math.round(x.bar * 100) / 100, 20.41, 'logged bar converts exactly so totals stay true');
+  const back = T.convertUnits(st, 'lb'), xb = back.mesos[0].sessions['1-0'].exs[0];
+  eq(Math.abs(xb.sets[0].w - 135) < 1e-9 && Math.abs(xb.bar - 45) < 1e-9 && Math.abs(back.prefs.bw - 180) < 1e-9, true, 'switching back restores exact numbers');
+  eq([back.prefs.bar, back.exercises[0].inc, back.exercises[1].inc, back.exercises[0].bar], [45, 5, 2.5, 35], 'settings round-trip');
+  eq(T.planLoad({ lo: 8, hi: 12, inc: 2.5 }, { tot: 61.2349, r: 8, rir: 3 }, 2, false).w, 61.25, 'suggestions after a switch snap to 0.25');
+  const same = mk(); T.convertUnits(same, 'lb'); eq(same.mesos[0].sessions['1-0'].exs[0].sets[0].w, 135, 'same unit is a no-op'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);

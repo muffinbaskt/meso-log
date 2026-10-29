@@ -271,6 +271,22 @@ const roundTo=(x,inc)=>Math.round(x/inc)*inc;
 const e1rm=(w,r)=>w*(1+r/30);
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:null};
+/* Unit conversion. Logged and planned weights convert exactly, so switching back restores the same numbers.
+   Future-facing settings snap to real equipment: weight steps halve or double (5 lb = 2.5 kg) and standard bars swap (45 lb = 20 kg). */
+const LB_KG=0.45359237;
+const BARS=[[45,20],[35,15],[25,10],[15,7]];   // [lb, kg]
+function convBar(v,to){if(v==null)return v;const hit=BARS.find(b=>to==='kg'?b[0]===v:b[1]===v);return hit?(to==='kg'?hit[1]:hit[0]):convW(v,to)}
+function convW(v,to){return v==null||v===''?v:(to==='kg'?v*LB_KG:v/LB_KG)}
+function convertUnits(st,to){
+  const from=st.prefs.unit||'lb';if(from===to)return st;
+  st.prefs.unit=to;st.prefs.bw=convW(st.prefs.bw,to);st.prefs.bar=convBar(st.prefs.bar,to);
+  for(const e of st.exercises){if(e.inc)e.inc=to==='kg'?e.inc/2:e.inc*2;if(e.bar!=null)e.bar=convBar(e.bar,to)}
+  for(const m of st.mesos)for(const se of Object.values(m.sessions))for(const x of se.exs){
+    if(x.bar!=null)x.bar=convW(x.bar,to);   // history: exact, so totals stay true
+    for(const t of x.sets){t.w=convW(t.w,to);t.pw=convW(t.pw,to)}
+  }
+  return st;
+}
 
 /* Target reps-in-reserve: starts at 3 and falls to 0 over the accumulation weeks; the final week is a deload. */
 // Target RIR per week. 'std': 3 falling to 0. 'test': week 1 goes to 0-1 RIR (stored as 0.5) to measure the real max,
@@ -345,7 +361,7 @@ function planLoad(e,lp,t,dl,mode){
   let T=lp.tot,r=(e1/T-1)*30-t,n=0;
   while(r>e.hi+0.49&&n<8){T+=step;r=(e1/T-1)*30-t;n++}
   n=0;while(r<e.lo-1.5&&n<3&&ok(toW(T-step))){T-=step;r=(e1/T-1)*30-t;n++}
-  return {w:Math.round(toW(T)*100)/100,r:Math.max(1,Math.round(r))};
+  return {w:Math.round(toW(T)*4)/4,r:Math.max(1,Math.round(r))};   // 0.25 grid keeps suggestions loadable after a unit switch
 }
 /* Set change for a muscle from soreness (this session's prompt) plus last session's pump and volume ratings. */
 function setDelta(sor,pump,vol){
@@ -649,7 +665,7 @@ function viewMore(){
   if(ui.sub==='progress')return viewProgress();
   let h='<div class="page-h gut"><h1>More</h1></div><div class="gut">';
   h+='<button class="li" data-act="subprog"><div><b>Progress</b><small>Strength trends and weekly sets per muscle</small></div><span class="chev">'+I.chev+'</span></button>';
-  h+='<div class="sec">Settings</div><div class="card" style="margin-top:0"><div class="two"><div class="field" style="margin:0"><label for="s_unit">Weight unit</label><select id="s_unit" class="in" data-chg="unit"><option value="lb"'+(unit()==='lb'?' selected':'')+'>lb</option><option value="kg"'+(unit()==='kg'?' selected':'')+'>kg</option></select></div><div class="field" style="margin:0"><label for="s_bw">Bodyweight</label><input id="s_bw" class="in" inputmode="decimal" data-chg="bw" value="'+fmt(S.prefs.bw)+'"></div></div><div class="two" style="margin-top:12px"><div class="field" style="margin:0"><label for="s_bar">Bar weight</label><input id="s_bar" class="in" inputmode="decimal" data-chg="bar" value="'+fmt(S.prefs.bar)+'"></div><div class="field" style="margin:0"><label for="s_bl">Barbell entry</label><select id="s_bl" class="in" data-chg="barload"><option value="total"'+(S.prefs.barLoad!=='side'?' selected':'')+'>Total weight</option><option value="side"'+(S.prefs.barLoad==='side'?' selected':'')+'>One end only</option></select></div></div><p>Barbell entry is how you type weight on barbell exercises. One end only leaves out the bar and the other end, and the app adds them back for progression. You can override it per exercise from the exercise menu. Unit is a label only, so existing numbers are not converted.</p></div>';
+  h+='<div class="sec">Settings</div><div class="card" style="margin-top:0"><div class="two"><div class="field" style="margin:0"><label for="s_unit">Weight unit</label><select id="s_unit" class="in" data-chg="unit"><option value="lb"'+(unit()==='lb'?' selected':'')+'>lb</option><option value="kg"'+(unit()==='kg'?' selected':'')+'>kg</option></select></div><div class="field" style="margin:0"><label for="s_bw">Bodyweight</label><input id="s_bw" class="in" inputmode="decimal" data-chg="bw" value="'+fmt(S.prefs.bw)+'"></div></div><div class="two" style="margin-top:12px"><div class="field" style="margin:0"><label for="s_bar">Bar weight</label><input id="s_bar" class="in" inputmode="decimal" data-chg="bar" value="'+fmt(S.prefs.bar)+'"></div><div class="field" style="margin:0"><label for="s_bl">Barbell entry</label><select id="s_bl" class="in" data-chg="barload"><option value="total"'+(S.prefs.barLoad!=='side'?' selected':'')+'>Total weight</option><option value="side"'+(S.prefs.barLoad==='side'?' selected':'')+'>One end only</option></select></div></div><p>Barbell entry is how you type weight on barbell exercises. One end only leaves out the bar and the other end, and the app adds them back for progression. You can override it per exercise from the exercise menu. Changing the unit converts every weight you have entered.</p></div>';
   h+=soreStatus();
   h+=accountCard();
   h+='<div class="sec">Backup</div><div class="card" style="margin-top:0"><p id="status"></p><div class="acts"><button class="btn" data-act="export">Export backup</button><label class="btn" for="imp" style="cursor:pointer">Import backup</label><input id="imp" type="file" accept=".json,application/json" hidden data-chg="import"></div></div>';
@@ -833,8 +849,9 @@ function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="
 /* ---------- action handlers ---------- */
 const ACT={
 close(){closeSheet()},
+dounit(){convertUnits(S,ui.unitTo);ui.tmp=null;mark('core',...S.mesos.map(m=>'meso:'+m.id));closeSheet();render();toast('Weights are now in '+unit())},
 setupsave(){const bw=num($('#f_sbw').value);if(!(bw>0)){toast('Enter your bodyweight');return}
-  const u=$('#f_su').value;S.prefs.unit=u;S.prefs.bw=bw;S.prefs.barLoad=$('#f_sbl').value;if(u==='kg'&&S.prefs.bar===45)S.prefs.bar=20;
+  const u=$('#f_su').value;convertUnits(S,u);S.prefs.bw=bw;S.prefs.barLoad=$('#f_sbl').value;ui.tmp=null;
   delete S.prefs.needsSetup;mark('core');closeSheet();render()},
 scopen(){openSoreCheck()},
 sclater(){closeSheet()},
@@ -978,7 +995,8 @@ document.addEventListener('change',e=>{
   if(k==='tplname'){S.templates.find(z=>z.id===ui.tpl).name=el.value.trim()||'Template';mark('core')}
   else if(k==='dayname'){S.templates.find(z=>z.id===ui.tpl).days[+el.closest('[data-di]').dataset.di].name=el.value.trim()||'Day';mark('core')}
   else if(k==='dayweekday'){S.templates.find(z=>z.id===ui.tpl).days[+el.closest('[data-di]').dataset.di].weekday=+el.value;mark('core')}
-  else if(k==='unit'){S.prefs.unit=el.value;mark('core');render()}
+  else if(k==='unit'){const to=el.value;el.value=unit();if(to===unit())return;ui.unitTo=to;
+    confirmSheet('Convert to '+to+'?','Every weight you have entered is converted: logged and planned sets, bodyweight and bar weights. Weight steps '+(to==='kg'?'halve (5 lb becomes 2.5 kg)':'double (2.5 kg becomes 5 lb)')+'. Switching back restores your logged numbers exactly.','dounit')}
   else if(k==='bw'){const v=num(el.value);if(v>0){S.prefs.bw=v;mark('core')}}
   else if(k==='bar'){const v=num(el.value);if(v!=null&&v>=0){S.prefs.bar=v;mark('core')}}
   else if(k==='barload'){S.prefs.barLoad=el.value;mark('core')}
