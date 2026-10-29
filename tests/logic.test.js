@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle
 };`);
 
 let ok = 0, bad = 0;
@@ -274,6 +274,29 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   eq(s2.exs[0].sets[0].w, 22.5, 'same bodyweight leaves weights exactly as they are');
   const old = { v: 1, libv: 2, prefs: {}, exercises: [{ ...wp, plus: undefined }, { ...T.ex('pushup-weighted-narrow-grip'), plus: undefined, equip: 'Weighted vest' }], templates: [], mesos: [] };
   T.upgradeLib(old); eq([old.exercises[0].plus, old.exercises[1].plus], [true, undefined], 'upgrade flags untouched weighted exercises only'); }
+
+// ---- interval (EMOM) exercises ----
+{ const done = tg => tg.map(r => ({ pr: r, r, done: true }));
+  eq(T.ivlNext(null, 10, 10), [10, 10, 10, 10, 10, 10, 10, 10, 10, 10], 'first time: every round at the starting reps');
+  let tg = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]; const totals = [];
+  for (let w = 0; w < 6; w++) { tg = T.ivlNext(done(tg), 10, 10); totals.push(tg.reduce((a, b) => a + b, 0)); }
+  eq(totals, [102, 104, 106, 108, 110, 112], 'adds 2 reps a week, base goes up when every round has the extra rep');
+  eq(T.ivlNext(done([10, 10, 10, 10, 10, 10, 10, 10, 11, 11]), 10, 10), [10, 10, 10, 10, 10, 10, 11, 11, 11, 11], 'the extra reps grow from the end');
+  const missed = [10, 10, 10, 10, 10, 10, 10, 10, 11, 11].map((r, i) => ({ pr: r, r: i === 9 ? 10 : r, done: true }));
+  eq(T.ivlNext(missed, 10, 10), [10, 10, 10, 10, 10, 10, 10, 10, 11, 11], 'a missed round repeats the week');
+  eq(T.ivlNext(done([10, 10, 10, 10, 10, 10, 10, 10, 11, 11]), 12, 10), [10, 10, 10, 10, 10, 10, 10, 10, 11, 11, 11, 11], 'more rounds keeps base and extras');
+  T.S = T.seedState(); T.normalize();
+  T.S.exercises.push({ id: 'burpee', name: 'Burpee', muscle: 'quads', equip: 'Bodyweight', lo: 8, hi: 12, inc: 5, bw: true, ivl: { rounds: 10, reps: 10, secs: 60 } });
+  const m = { id: 'iv', name: 'iv', weeks: 5, start: '2026-11-02', days: [{ name: 'D', weekday: 0, items: [{ exId: 'burpee', sets: 3 }, { exId: 'leg-press', sets: 3 }] }], sessions: {}, created: 9, template: 'x' };
+  T.S.mesos.push(m);
+  const tot = x => x.sets.reduce((a, t) => a + t.pr, 0);
+  for (let wk = 1; wk <= 5; wk++) { const s = T.buildSession(m, wk, 0); s.exs[0].sets.forEach(t => { t.done = true; }); m.sessions[s.key] = s; }
+  eq([1, 2, 3, 4, 5].map(wk => tot(m.sessions[wk + '-0'].exs[0])), [100, 102, 104, 106, 60], 'a 5-week block: 100, 102, 104, 106, deload 60');
+  eq(m.sessions['1-0'].exs[0].sets.length, 10, 'rounds come from the exercise, not the template set count');
+  const s = T.buildSession(m, 2, 0); s.fb = { quads: { sor: 0 } };
+  T.applyMuscle(m, s, 'quads'); eq(s.exs[0].sets.length, 10, 'set adjustments never change interval rounds');
+  const m2 = { ...m, id: 'iv2', created: 10, sessions: {} }; T.S.mesos.push(m2);
+  eq(tot(T.buildSession(m2, 1, 0).exs[0]), 108, 'the next mesocycle picks up where the last one finished'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
