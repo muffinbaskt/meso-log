@@ -63,6 +63,7 @@ A mesocycle copies its template's days when it starts, so later template edits n
 - Live at https://bbqsauce.fit, served by GitHub Pages from `main` (repo `muffinbaskt/meso-log`, public). Pushing to `main` deploys. `CNAME` holds the domain. `www` and `http` redirect.
 - Domain registered at Porkbun. DNS there: GitHub Pages A/AAAA records, `www` CNAME, GitHub verification TXT, and Resend's records (`resend._domainkey`, `rsend`, `send`, `_dmarc`).
 - Sign-in emails go through Resend (custom SMTP in Supabase, sender `login@bbqsauce.fit`). Supabase redirect URLs list `https://bbqsauce.fit/**` and localhost.
+- Installable via `manifest.webmanifest` and `icons/`. When an icon changes, give the files a new version suffix (`-v3`) and bump `manifest.webmanifest?v=` in `index.html`: Chrome and Android cache icons by URL, so same-name replacements don't show up. `icons/mascot.png` is the transparent cutout the icons are made from. No service worker yet.
 - `docs/reference/*.png` are gitignored on purpose: RP screenshots must never be published.
 
 ## Storage
