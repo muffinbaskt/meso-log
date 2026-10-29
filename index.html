@@ -93,6 +93,14 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .ex-h p u{cursor:pointer;text-decoration-color:var(--dim)}
 .ex-h .ib{width:38px;height:38px;color:var(--muted)}
 .ex-h .ib svg{width:22px;height:22px}
+.notechip{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:4px 10px 4px 8px;border-radius:999px;background:var(--surface2);color:var(--muted);font-size:12px;font-weight:600}
+.notechip svg{width:15px;height:15px}
+.notechip.due{background:var(--accent);color:var(--accent-ink);animation:notepulse 1.6s ease-in-out infinite}
+@keyframes notepulse{50%{box-shadow:0 0 0 6px var(--accent-soft)}}
+@media (prefers-reduced-motion:reduce){.notechip.due{animation:none}}
+.nbox{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface2)}
+.nbox small{display:block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.nbox p{margin:0;white-space:pre-wrap}
 .note{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:var(--surface2);font-size:14px;color:var(--muted);white-space:pre-wrap}
 .flag{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:14px;font-weight:500}
 .cols,.set{display:grid;grid-template-columns:30px 1fr 1fr 34px 46px;gap:8px;align-items:center}
@@ -828,6 +836,13 @@ function reorderItems(items,exIds){const left=items.slice(),out=[];
   return out.concat(left)}
 function replaceItem(items,idx,oldId,newId){const it=items[idx]&&items[idx].exId===oldId?items[idx]:items.find(i=>i.exId===oldId);if(it)it.exId=newId;return !!it}
 function dropUntouched(m,di,wk){for(const k of Object.keys(m.sessions)){const s=m.sessions[k];if(s.di===di&&s.wk>wk&&!s.exs.some(x=>x.sets.some(t=>t.done)))delete m.sessions[k]}}
+/* Notes: x.note is for this workout only, e.pin is pinned to the exercise and shows wherever it appears.
+   A note is due (asks to be read) once every exercise in the group before it is finished; the first group's notes are due
+   from the start. Opening the note sets x.noteSeen. */
+const hasNote=x=>{const e=ex(x.exId)||{};return !!((e.pin&&e.pin.trim())||(x.note&&x.note.trim()))};
+function noteDue(s,ei){const x=s.exs[ei];if(!x||!hasNote(x)||x.noteSeen)return false;
+  const gs=ssGroups(s.exs),gi=gs.findIndex(g=>g.includes(ei));
+  return gi<=0||gs[gi-1].every(j=>s.exs[j].sets.every(t=>t.done))}
 /* Today's bodyweight. Session exercises that use bodyweight keep it in abw; bodyweight-only sets show it as their weight. */
 const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
 // A new bodyweight keeps each unlogged set's total load: bodyweight-only sets take the new weight, added weight shrinks
@@ -1043,9 +1058,8 @@ function viewWorkout(){
   h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>'+(s.done?'<span class="chip">Finished '+esc(s.date||'')+'</span>':'')+'</div>';
   let last=null,letter=0;
   const head=(x,ei,tag)=>{const e=ex(x.exId);
-    let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
+    let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p>'+(hasNote(x)?((d)=>'<button class="notechip'+(d?' due':'')+'" data-act="noteopen">'+I.note+(d?'Read note':'Note')+'</button>')(noteDue(s,ei)):'')+'</div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
     if(x.swap)o+='<div class="flag">Severe joint pain last time. Consider replacing this exercise.</div>';
-    if(x.note)o+='<div class="note">'+esc(x.note)+'</div>';
     return o};
   const row=(x,ei,t,si,tag)=>'<div class="set'+(t.done?' done':'')+'" data-ei="'+ei+'" data-si="'+si+'">'+(tag?'<button class="ib stl" data-act="setmenu" aria-label="'+tag+' set menu">'+tag+'</button>':t.ty?'<button class="ib stl" data-act="setmenu" aria-label="'+SET_TY[t.ty].name+' set. Set menu">'+SET_TY[t.ty].short+'</button>':'<button class="ib" data-act="setmenu" aria-label="Set menu">'+I.kebab+'</button>')
        +'<input inputmode="decimal" enterkeyhint="done" data-chg="setw" value="'+fmt(t.w)+'" placeholder="–" aria-label="Weight">'
@@ -1224,10 +1238,12 @@ function toggleSet(ei,si){
     if(!(t.r>0)){toast('Enter the reps');return}
     const first=!muscleHasDone(s,mu);
     const dv=first?deriveSoreness(mu):null;
+    const due0=s.exs.map((_,i)=>noteDue(s,i));
     t.done=true;if(!s.date)s.date=today();
     if(si===0)matchTargets(x);
     if(first){trackWorked(mu);mark('core')}
     commit(s);render();
+    const nd=s.exs.findIndex((_,i)=>!due0[i]&&noteDue(s,i));if(nd>=0)toast('Check the note on '+ex(s.exs[nd].exId).name+' before you start');
     if(first)maybeSoreness(s,mu,dv);else maybePost(s,mu);
   }else{t.done=false;commit(s);render()}
 }
@@ -1378,9 +1394,16 @@ fbsavepost(){const s=curSession(),mu=ui.fb.mu,xs=s.exs.filter(x=>muscleOf(x)===m
 /* exercise menu */
 exmenu(el){const c=ctx(el);ui.ei=c.ei;const s=curSession(),x=s.exs[ui.ei],nx=s.exs[ui.ei+1],linked=x.ss&&nx;sheet('<h2>Exercise</h2><div class="menu">'
   +(linked||(nx&&!x.ivl&&!nx.ivl)?'<button class="li" data-act="xlink">'+I.link+'<div><b>'+(linked?'Unlink superset':'Superset with next exercise')+'</b><small>'+(linked?'Separate from ':'Alternate sets with ')+esc(ex(nx.exId).name)+'</small></div></button>':'')
-  +'<button class="li" data-act="xnote">'+I.note+'New note</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
-xnote(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Note</h2><div class="field"><label for="f_note">Note for this exercise</label><textarea id="f_note" class="in">'+esc(x.note)+'</textarea></div><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="xnotesave">Save</button></div>')},
-xnotesave(){const s=curSession();s.exs[ui.ei].note=$('#f_note').value.trim();commit(s);closeSheet();render()},
+  +'<button class="li" data-act="xnote">'+I.note+'Notes</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
+xnote(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId);
+  sheet('<h2>Notes</h2><p style="color:var(--muted);margin-top:0">'+esc(e.name)+'</p><div class="field"><label for="f_note">Today only</label><textarea id="f_note" class="in" placeholder="Just for this workout">'+esc(x.note||'')+'</textarea></div><div class="field"><label for="f_pin">Pinned to this exercise</label><textarea id="f_pin" class="in" placeholder="Shows every time '+esc(e.name)+' comes up">'+esc(e.pin||'')+'</textarea></div><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="xnotesave">Save</button></div>')},
+xnotesave(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId),n=$('#f_note').value.trim(),pn=$('#f_pin').value.trim();
+  if(n)x.note=n;else delete x.note;
+  if((e.pin||'')!==pn){if(pn)e.pin=pn;else delete e.pin;mark('core')}
+  x.noteSeen=true;commit(s);closeSheet();render()},
+noteopen(el){const s=curSession(),ei=ctx(el).ei,x=s.exs[ei],e=ex(x.exId);ui.ei=ei;
+  sheet('<h2>Notes</h2><p style="color:var(--muted);margin-top:0">'+esc(e.name)+'</p>'+(e.pin?'<div class="nbox"><small>Pinned</small><p>'+esc(e.pin)+'</p></div>':'')+(x.note?'<div class="nbox"><small>Today</small><p>'+esc(x.note)+'</p></div>':'')+'<div class="foot"><button class="btn" data-act="xnote">Edit</button><button class="btn pri" data-act="close">Got it</button></div>');
+  if(!x.noteSeen){x.noteSeen=true;commit(s);setTimeout(render,0)}},
 xorder(){const s=curSession();
   sheet('<h2>Reorder</h2><p style="color:var(--muted);margin-top:0">Drag the handles to put exercises in order.</p><div id="ordlist">'+s.exs.map((x,i)=>'<div class="ordr" data-i="'+i+'"><span class="grip" data-drag aria-label="Drag to move">'+I.grip+'</span><span class="onm">'+esc(ex(x.exId).name)+'<small>'+esc(MUS[ex(x.exId).muscle].name)+'</small></span></div>').join('')+'</div><div class="foot"><button class="btn" data-act="ordgo" data-v="day">Just today</button><button class="btn pri" data-act="ordgo" data-v="rest">Rest of mesocycle</button></div>')},
 ordgo(el){const s=curSession(),m=meso(),ord=[...document.querySelectorAll('#ordlist .ordr')].map(r=>+r.dataset.i);
