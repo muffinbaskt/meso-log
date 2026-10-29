@@ -324,6 +324,7 @@ const LIB=[
 ["Bench Press (Medium Grip)", "chest", "Barbell", 6, 10, 5, 0, "bench-press-barbell"],
 ["Bench Press (Narrow Grip)", "chest", "Barbell", 6, 10, 5],
 ["Bench Press (Wide Grip)", "chest", "Barbell", 8, 12, 5],
+["Bodyweight Squat", "quads", "Bodyweight", 10, 20, 5, 1],
 ["Bulgarian Split Squat", "quads", "Smith Machine", 8, 12, 5],
 ["Bulgarian Split Squat (Glute-Focused)", "glutes", "Dumbbell", 8, 12, 5],
 ["Bulgarian Split Squat (Quad-Focused)", "quads", "Dumbbell", 8, 12, 5, 0, "bulgarian-split-squat-dumbbell"],
@@ -582,7 +583,9 @@ const LIB=[
 ["Walking Lunges (Quad-Focused, Dumbbell)", "quads", "Dumbbell", 8, 12, 5]];
 // Built-ins that were renamed when the library grew: old id -> [old default name, new name]. Ids never change, so history stays attached.
 const LIB_ALIAS={"bench-press-barbell": ["Bench Press (Barbell)", "Bench Press (Medium Grip)"], "incline-dumbbell-press": ["Incline Dumbbell Press", "Dumbbell Press (Medium Incline)"], "cable-fly": ["Cable Fly", "Cable Flye"], "push-up": ["Push-up", "Pushup"], "lat-pulldown-cable": ["Lat Pulldown (Cable)", "Pulldown (Normal Grip)"], "barbell-row": ["Barbell Row", "Barbell Bent Over Row"], "chest-supported-row-dumbbell": ["Chest-Supported Row (Dumbbell)", "Dumbbell Row (2-Arm, Incline)"], "straight-arm-pulldown": ["Straight-Arm Pulldown", "Pulldown (Straight Arm)"], "dumbbell-bent-over-shrug": ["Dumbbell Bent Over Shrug", "Dumbbell Bent Over Shrug (Traps)"], "barbell-shrug": ["Barbell Shrug", "Barbell Shrug (Traps)"], "overhead-press-barbell": ["Overhead Press (Barbell)", "Barbell Shoulder Press (Standing)"], "dumbbell-shoulder-press": ["Dumbbell Shoulder Press", "Dumbbell Shoulder Press (Seated)"], "cable-lateral-raise": ["Cable Lateral Raise", "Cable Lateral Raise (Single-Arm)"], "reverse-pec-deck": ["Reverse Pec Deck", "Machine Reverse Flye"], "face-pull": ["Face Pull", "Cable Rope Facepull"], "barbell-curl": ["Barbell Curl", "Barbell Curl (Normal Grip)"], "incline-dumbbell-curl": ["Incline Dumbbell Curl", "Dumbbell Curl (Incline)"], "overhead-cable-triceps-extension": ["Overhead Cable Triceps Extension", "Cable Overhead Triceps Extension"], "skullcrusher-ez-bar": ["Skullcrusher (EZ Bar)", "EZ Bar Skullcrusher"], "dip": ["Dip", "Dip (Triceps-Focused)"], "close-grip-bench-press": ["Close-Grip Bench Press", "Bench Press (Close Grip)"], "wrist-curl": ["Wrist Curl", "Dumbbell Bench Wrist Curl"], "back-squat": ["Back Squat", "Barbell Squat (High Bar)"], "bulgarian-split-squat-dumbbell": ["Bulgarian Split Squat (Dumbbell)", "Bulgarian Split Squat (Quad-Focused)"], "hip-thrust-barbell": ["Hip Thrust (Barbell)", "Barbell Hip Thrust"], "cable-pull-through": ["Cable Pull-Through", "Cable Pull Through"], "cable-crunch": ["Cable Crunch", "Cable Rope Crunch"]};
-const LIB_V=3;
+const LIB_V=4;
+// Exercises added to the library after version 2, by the version that added them. Existing accounts get these once.
+const LIB_ADDED={4:['Bodyweight Squat']};
 // Library rows: [name, muscle, equipment, reps low, reps high, weight step, kind (1 bodyweight, 2 assisted machine, 3 bodyweight + added weight), id if it predates the name]
 function libEx([name,muscle,equip,lo,hi,inc,kind,id]){const e={id:id||idOf(name),name,muscle,equip,lo,hi,inc,bw:kind===1||kind===3};if(kind===2)e.assist=true;if(kind===3)e.plus=true;return e}
 const libId=n=>{const r=LIB.find(r=>r[0]===n);if(!r)throw new Error('not in library: '+n);return r[7]||idOf(n)};
@@ -600,6 +603,9 @@ function upgradeLib(st){
     const plus=new Set(LIB.filter(r=>r[6]===3).map(r=>r[7]||idOf(r[0])));
     for(const e of st.exercises)if(plus.has(e.id)&&e.bw&&e.equip==='Bodyweight + weight')e.plus=true;
   }
+  for(let n=Math.max(v+1,3);n<=LIB_V;n++)for(const name of LIB_ADDED[n]||[]){
+    const e=libEx(LIB.find(r=>r[0]===name));if(st.exercises.some(x=>x.id===e.id||x.name.toLowerCase()===name.toLowerCase()))continue;
+    if((st.prefs&&st.prefs.unit)==='kg')e.inc/=2;st.exercises.push(e)}
   st.libv=LIB_V;return true;
 }
 const idOf=n=>slug(n);
