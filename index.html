@@ -101,6 +101,7 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .nbox{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface2)}
 .nbox small{display:block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .nbox p{margin:0;white-space:pre-wrap}
+.daynote{display:block;width:100%;text-align:left;margin-top:10px;color:var(--fg)}
 .note{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:var(--surface2);font-size:14px;color:var(--muted);white-space:pre-wrap}
 .flag{margin:10px 0 0;padding:8px 10px;border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:14px;font-weight:500}
 .cols,.set{display:grid;grid-template-columns:30px 1fr 1fr 34px 46px;gap:8px;align-items:center}
@@ -1055,7 +1056,7 @@ function viewWorkout(){
   if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No mesocycle yet</h2><p>Pick a template and start a training block. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">Start a mesocycle</button></div>';
   const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=ui.wk===m.weeks,c=sessCounts(s);
   let h='<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div><button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
-  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>'+(s.done?'<span class="chip">Finished '+esc(s.date||'')+'</span>':'')+'</div>';
+  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>'+(s.done?'<span class="chip">Finished '+esc(s.date||'')+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
   let last=null,letter=0;
   const head=(x,ei,tag)=>{const e=ex(x.exId);
     let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p>'+(hasNote(x)?((d)=>'<button class="notechip'+(d?' due':'')+'" data-act="noteopen">'+I.note+(d?'Read note':'Note')+'</button>')(noteDue(s,ei)):'')+'</div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
@@ -1338,6 +1339,8 @@ function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="
 /* ---------- action handlers ---------- */
 const ACT={
 close(){closeSheet()},
+daynote(){const s=curSession();sheet('<h2>Workout note</h2><div class="field"><label for="f_dnote">For this workout</label><textarea id="f_dnote" class="in" placeholder="Anything about today: sleep, energy, gym was packed…">'+esc(s.note||'')+'</textarea></div><p style="color:var(--muted);font-size:14px">Shows at the top of this workout. For a note on one exercise, use that exercise’s menu.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="daynotesave">Save</button></div>')},
+daynotesave(){const s=curSession(),n=$('#f_dnote').value.trim();if(n)s.note=n;else delete s.note;commit(s);closeSheet();render()},
 prio(el){prioSheet(el.dataset.id)},
 prioset(el){const m=S.mesos.find(z=>z.id===ui.prioM);if(!m)return;m.prio=m.prio||{};
   if(el.dataset.v==='grow')delete m.prio[el.dataset.mu];else m.prio[el.dataset.mu]=el.dataset.v;mark('meso:'+m.id);
@@ -1437,7 +1440,7 @@ cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" 
   for(let wk=1;wk<=m.weeks;wk++){h+='<div class="wk"><b>Wk '+wk+(wk===m.weeks?' D':'')+'</b>';for(let di=0;di<n;di++){const s=m.sessions[wk+'-'+di],c=s?sessCounts(s):{d:0,t:1};const cl=(s&&s.done)?'full':(c.d?'part':'');h+='<button class="d '+cl+(wk===ui.wk&&di===ui.di?' now':'')+'" data-act="goto" data-wk="'+wk+'" data-di="'+di+'">'+(di+1)+'</button>'}h+='</div>'}
   sheet(h+'</div><p style="color:var(--muted);font-size:14px;margin-top:12px">Filled green is finished. The last week is the deload.</p>')},
 goto(el){ui.wk=+el.dataset.wk;ui.di=+el.dataset.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0)},
-sessmenu(){sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
+sessmenu(){sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button><button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast('Workout saved')},
 resetday(){confirmSheet('Reset this day?','Logged sets and feedback for this day are cleared and the plan is rebuilt.','doreset')},
 doreset(){const m=meso();delete m.sessions[ui.wk+'-'+ui.di];ui.tmp=null;mark('meso:'+m.id);closeSheet();render()},
