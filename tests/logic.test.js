@@ -231,6 +231,7 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   eq([by('hack-squat').lo, by('hack-squat').hi], [6, 8], 'user settings are never overwritten');
   eq(old.exercises.filter(e => e.name.toLowerCase() === 'pec dec flye').length, 1, 'no duplicate of an exercise the user already made');
   eq(by('arnold-press').inc, 2.5, 'added exercises use kg steps for kg users');
+  eq(!!by('bodyweight-squat'), true, 'an old account gets later additions too');
   eq(T.upgradeLib(old), false, 'upgrade runs once');
   const n = old.exercises.length; old.exercises = old.exercises.filter(e => e.id !== 'arnold-press'); T.upgradeLib(old);
   eq(old.exercises.length, n - 1, 'a deleted exercise does not come back'); }
@@ -329,6 +330,12 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq([s2.fb.quads.delta, s2.exs.map(x => x.sets.length)], [0, [3, 3]], 'maintain keeps sets even when feedback says add');
   m.prio = { quads: 'emph' }; const s3 = T.buildSession(m, 2, 0); s3.fb = { quads: { sor: 0 } }; T.applyMuscle(m, s3, 'quads');
   eq(s3.fb.quads.delta, 3, 'emphasize on the same feedback adds the most'); }
+
+{ const v3 = { v: 1, libv: 3, prefs: { unit: 'lb' }, exercises: [{ id: 'leg-press', name: 'Leg Press', muscle: 'quads', equip: 'Machine', lo: 10, hi: 15, inc: 10 }], templates: [], mesos: [] };
+  eq(T.upgradeLib(v3), true, 'a version-3 account upgrades');
+  eq(v3.exercises.map(e => e.name), ['Leg Press', 'Bodyweight Squat'], 'it gets only the newly added exercise');
+  const e = v3.exercises[1]; eq([e.muscle, e.bw, e.lo, e.hi], ['quads', true, 10, 20], 'Bodyweight Squat: quads, bodyweight, 10-20 reps');
+  v3.exercises.pop(); v3.libv = 4; eq(T.upgradeLib(v3), false, 'deleting it later sticks'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
