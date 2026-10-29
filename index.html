@@ -85,6 +85,8 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 /* exercise card */
 .ex{background:var(--surface);border-radius:14px;padding:14px 14px 6px;margin-bottom:10px}
 .ex-h{display:flex;align-items:flex-start;gap:4px}
+.bwchip{display:inline-flex;gap:4px;align-items:center;margin:0 0 8px;padding:5px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600}
+.bwchip span{opacity:.75;font-weight:500}
 .ex-h h3{font-size:22px;line-height:1.1}
 .ex-h p{margin:2px 0 0;color:var(--muted);font-size:14px}
 .ex-h p u{cursor:pointer;text-decoration-color:var(--dim)}
@@ -245,8 +247,8 @@ const LIB=[
 ["Assisted Pullup (Parallel Grip)", "back", "Assisted machine", 8, 12, 5, 2],
 ["Assisted Pullup (Underhand Grip)", "back", "Assisted machine", 8, 12, 5, 2],
 ["Assisted Pullup (Wide Grip)", "back", "Assisted machine", 8, 12, 5, 2],
-["Back Extension", "back", "Bodyweight + weight", 10, 15, 5, 1],
-["Back Extension (Flexion)", "back", "Bodyweight + weight", 10, 15, 5, 1],
+["Back Extension", "back", "Bodyweight + weight", 10, 15, 5, 3],
+["Back Extension (Flexion)", "back", "Bodyweight + weight", 10, 15, 5, 3],
 ["Back Raise (45 degree)", "hamstrings", "Bodyweight", 10, 15, 5, 1],
 ["Back Raise (Glute Ham Deck)", "hamstrings", "Bodyweight", 10, 15, 5, 1],
 ["Barbell Bent Over Row", "back", "Barbell", 6, 10, 5, 0, "barbell-row"],
@@ -354,8 +356,8 @@ const LIB=[
 ["Decline Dumbbell Curl", "biceps", "Dumbbell", 10, 15, 5],
 ["Dip (Chest-Focused)", "chest", "Bodyweight", 6, 12, 5, 1],
 ["Dip (Triceps-Focused)", "triceps", "Bodyweight", 6, 12, 5, 1, "dip"],
-["Dip (Weighted, Chest-Focused)", "chest", "Bodyweight + weight", 8, 12, 5, 1],
-["Dip (Weighted, Triceps-Focused)", "triceps", "Bodyweight + weight", 8, 12, 5, 1],
+["Dip (Weighted, Chest-Focused)", "chest", "Bodyweight + weight", 8, 12, 5, 3],
+["Dip (Weighted, Triceps-Focused)", "triceps", "Bodyweight + weight", 8, 12, 5, 3],
 ["Dip Machine", "triceps", "Machine", 8, 12, 5],
 ["Donkey Calf Raise", "calves", "Machine", 12, 20, 10],
 ["Dual Cable Pullover", "back", "Cable", 10, 15, 5],
@@ -485,16 +487,16 @@ const LIB=[
 ["Pullup (Normal Grip)", "back", "Bodyweight", 6, 12, 5, 1],
 ["Pullup (Parallel Grip)", "back", "Bodyweight", 6, 12, 5, 1],
 ["Pullup (Underhand Grip)", "back", "Bodyweight", 6, 12, 5, 1],
-["Pullup (Weighted, Normal Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
-["Pullup (Weighted, Parallel Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
-["Pullup (Weighted, Underhand Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
-["Pullup (Weighted, Wide Grip)", "back", "Bodyweight + weight", 8, 12, 5, 1],
+["Pullup (Weighted, Normal Grip)", "back", "Bodyweight + weight", 8, 12, 5, 3],
+["Pullup (Weighted, Parallel Grip)", "back", "Bodyweight + weight", 8, 12, 5, 3],
+["Pullup (Weighted, Underhand Grip)", "back", "Bodyweight + weight", 8, 12, 5, 3],
+["Pullup (Weighted, Wide Grip)", "back", "Bodyweight + weight", 8, 12, 5, 3],
 ["Pullup (Wide Grip)", "back", "Bodyweight", 6, 12, 5, 1],
 ["Pushup", "chest", "Bodyweight", 10, 25, 5, 1, "push-up"],
 ["Pushup (Deficit)", "chest", "Bodyweight", 10, 25, 5, 1],
 ["Pushup (Narrow Grip)", "chest", "Bodyweight", 10, 25, 5, 1],
-["Pushup (Weighted, Narrow Grip)", "chest", "Bodyweight + weight", 8, 12, 5, 1],
-["Pushup (Weighted, Normal Grip)", "chest", "Bodyweight + weight", 8, 12, 5, 1],
+["Pushup (Weighted, Narrow Grip)", "chest", "Bodyweight + weight", 8, 12, 5, 3],
+["Pushup (Weighted, Normal Grip)", "chest", "Bodyweight + weight", 8, 12, 5, 3],
 ["Reaching Sit-Up", "abs", "Bodyweight", 12, 20, 5, 1],
 ["Reverse Curl", "forearms", "Barbell", 12, 20, 5],
 ["Reverse Hyper", "glutes", "Machine", 10, 15, 5],
@@ -515,7 +517,7 @@ const LIB=[
 ["Single-Leg Leg Curl", "hamstrings", "Machine", 10, 15, 5],
 ["Sissy Squat (Machine)", "quads", "Bodyweight", 10, 15, 5, 1],
 ["Sissy Squat (No Machine)", "quads", "Bodyweight", 10, 15, 5, 1],
-["Slant Board Sit-Up (Weighted)", "abs", "Bodyweight + weight", 12, 20, 5, 1],
+["Slant Board Sit-Up (Weighted)", "abs", "Bodyweight + weight", 12, 20, 5, 3],
 ["Smith Machine Bench Press (Medium Grip)", "chest", "Smith Machine", 8, 12, 5],
 ["Smith Machine Bench Press (Narrow Grip)", "chest", "Smith Machine", 8, 12, 5],
 ["Smith Machine Bench Press (Wide Grip)", "chest", "Smith Machine", 8, 12, 5],
@@ -544,7 +546,7 @@ const LIB=[
 ["Stiff-Legged Deadlift", "hamstrings", "Barbell", 6, 10, 10],
 ["T-Bar Row", "back", "Machine", 8, 12, 5],
 ["Trap Bar Deadlift", "glutes", "Barbell", 6, 10, 10],
-["V-Up (Weighted)", "abs", "Bodyweight + weight", 12, 20, 5, 1],
+["V-Up (Weighted)", "abs", "Bodyweight + weight", 12, 20, 5, 3],
 ["Walking Lunges (Glute-Focused, Barbell)", "glutes", "Barbell", 6, 10, 5],
 ["Walking Lunges (Glute-Focused, Bodyweight)", "glutes", "Bodyweight", 10, 20, 5, 1],
 ["Walking Lunges (Glute-Focused, Dumbbell)", "glutes", "Dumbbell", 8, 12, 5],
@@ -553,18 +555,24 @@ const LIB=[
 ["Walking Lunges (Quad-Focused, Dumbbell)", "quads", "Dumbbell", 8, 12, 5]];
 // Built-ins that were renamed when the library grew: old id -> [old default name, new name]. Ids never change, so history stays attached.
 const LIB_ALIAS={"bench-press-barbell": ["Bench Press (Barbell)", "Bench Press (Medium Grip)"], "incline-dumbbell-press": ["Incline Dumbbell Press", "Dumbbell Press (Medium Incline)"], "cable-fly": ["Cable Fly", "Cable Flye"], "push-up": ["Push-up", "Pushup"], "lat-pulldown-cable": ["Lat Pulldown (Cable)", "Pulldown (Normal Grip)"], "barbell-row": ["Barbell Row", "Barbell Bent Over Row"], "chest-supported-row-dumbbell": ["Chest-Supported Row (Dumbbell)", "Dumbbell Row (2-Arm, Incline)"], "straight-arm-pulldown": ["Straight-Arm Pulldown", "Pulldown (Straight Arm)"], "dumbbell-bent-over-shrug": ["Dumbbell Bent Over Shrug", "Dumbbell Bent Over Shrug (Traps)"], "barbell-shrug": ["Barbell Shrug", "Barbell Shrug (Traps)"], "overhead-press-barbell": ["Overhead Press (Barbell)", "Barbell Shoulder Press (Standing)"], "dumbbell-shoulder-press": ["Dumbbell Shoulder Press", "Dumbbell Shoulder Press (Seated)"], "cable-lateral-raise": ["Cable Lateral Raise", "Cable Lateral Raise (Single-Arm)"], "reverse-pec-deck": ["Reverse Pec Deck", "Machine Reverse Flye"], "face-pull": ["Face Pull", "Cable Rope Facepull"], "barbell-curl": ["Barbell Curl", "Barbell Curl (Normal Grip)"], "incline-dumbbell-curl": ["Incline Dumbbell Curl", "Dumbbell Curl (Incline)"], "overhead-cable-triceps-extension": ["Overhead Cable Triceps Extension", "Cable Overhead Triceps Extension"], "skullcrusher-ez-bar": ["Skullcrusher (EZ Bar)", "EZ Bar Skullcrusher"], "dip": ["Dip", "Dip (Triceps-Focused)"], "close-grip-bench-press": ["Close-Grip Bench Press", "Bench Press (Close Grip)"], "wrist-curl": ["Wrist Curl", "Dumbbell Bench Wrist Curl"], "back-squat": ["Back Squat", "Barbell Squat (High Bar)"], "bulgarian-split-squat-dumbbell": ["Bulgarian Split Squat (Dumbbell)", "Bulgarian Split Squat (Quad-Focused)"], "hip-thrust-barbell": ["Hip Thrust (Barbell)", "Barbell Hip Thrust"], "cable-pull-through": ["Cable Pull-Through", "Cable Pull Through"], "cable-crunch": ["Cable Crunch", "Cable Rope Crunch"]};
-const LIB_V=2;
-// Library rows: [name, muscle, equipment, reps low, reps high, weight step, kind (1 bodyweight, 2 assisted machine), id if it predates the name]
-function libEx([name,muscle,equip,lo,hi,inc,kind,id]){const e={id:id||idOf(name),name,muscle,equip,lo,hi,inc,bw:kind===1};if(kind===2)e.assist=true;return e}
+const LIB_V=3;
+// Library rows: [name, muscle, equipment, reps low, reps high, weight step, kind (1 bodyweight, 2 assisted machine, 3 bodyweight + added weight), id if it predates the name]
+function libEx([name,muscle,equip,lo,hi,inc,kind,id]){const e={id:id||idOf(name),name,muscle,equip,lo,hi,inc,bw:kind===1||kind===3};if(kind===2)e.assist=true;if(kind===3)e.plus=true;return e}
 const libId=n=>{const r=LIB.find(r=>r[0]===n);if(!r)throw new Error('not in library: '+n);return r[7]||idOf(n)};
 /* Brings an older saved library up to date: renames untouched built-ins to their new names and adds exercises it lacks.
    Never removes or overwrites anything the user has. Returns true when something changed. */
 function upgradeLib(st){
-  if((st.libv||1)>=LIB_V)return false;
-  for(const e of st.exercises){const a=LIB_ALIAS[e.id];if(a&&e.name===a[0])e.name=a[1]}
-  const ids=new Set(st.exercises.map(e=>e.id)),names=new Set(st.exercises.map(e=>e.name.toLowerCase()));
-  for(const r of LIB){const e=libEx(r);if(ids.has(e.id)||names.has(e.name.toLowerCase()))continue;
-    if((st.prefs&&st.prefs.unit)==='kg')e.inc/=2;st.exercises.push(e)}
+  const v=st.libv||1;if(v>=LIB_V)return false;
+  if(v<2){
+    for(const e of st.exercises){const a=LIB_ALIAS[e.id];if(a&&e.name===a[0])e.name=a[1]}
+    const ids=new Set(st.exercises.map(e=>e.id)),names=new Set(st.exercises.map(e=>e.name.toLowerCase()));
+    for(const r of LIB){const e=libEx(r);if(ids.has(e.id)||names.has(e.name.toLowerCase()))continue;
+      if((st.prefs&&st.prefs.unit)==='kg')e.inc/=2;st.exercises.push(e)}
+  }
+  if(v<3){   // weighted bodyweight exercises now take the added weight only
+    const plus=new Set(LIB.filter(r=>r[6]===3).map(r=>r[7]||idOf(r[0])));
+    for(const e of st.exercises)if(plus.has(e.id)&&e.bw&&e.equip==='Bodyweight + weight')e.plus=true;
+  }
   st.libv=LIB_V;return true;
 }
 const idOf=n=>slug(n);
@@ -655,13 +663,14 @@ function prevMuscle(m,muscle,o){
 /* Next load and reps for one exercise at a target RIR, using an Epley estimate of the last best set. */
 /* Weight entry. A "per side" exercise stores the weight on ONE end; total = bar + 2 x that. Progression always works in total weight. */
 const loadMode=e=>{
-  if(e.assist)return {side:false,bar:0,assist:true,abw:S.prefs.bw||0};   // assisted machine: the entered weight is the assistance
-  if(e.bw)return {side:false,bar:0};
+  const abw=S.prefs.bw||0;
+  if(e.assist)return {side:false,bar:0,assist:true,abw};   // assisted machine: the entered weight is the assistance
+  if(e.bw)return e.plus?{side:false,bar:0,plus:true,abw}:{side:false,bar:0,bwo:true,abw};   // plus: the entered weight is what is added to bodyweight
   const l=e.load||'default';
   const side=l==='side'||(l==='default'&&/barbell/i.test(e.equip||'')&&(S.prefs.barLoad||'total')==='side');
   return {side,bar:side?(e.bar>0?e.bar:(S.prefs.bar>0?S.prefs.bar:0)):0};
 };
-const totOf=(x,w)=>x.assist?Math.max(0,(x.abw||0)-w):x.side?(x.bar||0)+2*w:w;   // assisted: load moved = bodyweight - assistance
+const totOf=(x,w)=>x.assist?Math.max(0,(x.abw||0)-w):x.plus?(x.abw||0)+w:x.side?(x.bar||0)+2*w:w;   // assisted: load moved = bodyweight - assistance
 // Compares a logged set's estimated 1RM (on total weight) with the planned set's: 'up', 'down', or null when equal.
 // Week 1 has no real expectation yet, and a set with no planned weight has nothing to compare against.
 function vsPlan(x,t,wk){
@@ -671,10 +680,14 @@ function vsPlan(x,t,wk){
 }
 function planLoad(e,lp,t,dl,mode){
   mode=mode||{side:false,bar:0};
-  const inc=e.inc||5,side=!!mode.side,bar=mode.bar||0,step=side?inc*2:inc,asst=!!mode.assist,abw=mode.abw||0;
-  const toW=T=>asst?abw-T:side?(T-bar)/2:T,ok=v=>side||asst?v>=0:v>0;
-  if(!lp||!(lp.tot>0)){return {w:e.bw?(S.prefs.bw||null):null,r:Math.round((e.lo+e.hi)/2)}}
-  if(dl){const T=e.bw?lp.tot:lp.tot*0.75;const w=e.bw?T:Math.max(side||asst?0:inc,roundTo(toW(T),inc));return {w,r:Math.max(1,Math.min(e.hi,Math.round(lp.r*(e.bw?0.7:1))))}}
+  const inc=e.inc||5,side=!!mode.side,bar=mode.bar||0,step=side?inc*2:inc,asst=!!mode.assist,plus=!!mode.plus,abw=mode.abw||0;
+  const toW=T=>asst?abw-T:plus?T-abw:side?(T-bar)/2:T,ok=v=>side||asst||plus?v>=0:v>0;
+  if(!lp||!(lp.tot>0)){return {w:plus?0:mode.bwo?abw:e.bw?(S.prefs.bw||null):null,r:Math.round((e.lo+e.hi)/2)}}
+  if(mode.bwo){   // bodyweight only: the load is today's bodyweight, so progress is reps
+    if(dl)return {w:abw,r:Math.max(1,Math.round(lp.r*0.7))};
+    const r=(lp.tot*(1+(lp.r+lp.rir)/30)/abw-1)*30-t;return {w:abw,r:Math.max(1,Math.round(r))};
+  }
+  if(dl){const T=e.bw?lp.tot:lp.tot*0.75;const w=e.bw?T:Math.max(side||asst||plus?0:inc,roundTo(toW(T),inc));return {w,r:Math.max(1,Math.min(e.hi,Math.round(lp.r*(e.bw?0.7:1))))}}
   const e1=lp.tot*(1+(lp.r+lp.rir)/30);
   let T=lp.tot,r=(e1/T-1)*30-t,n=0;
   while(r>e.hi+0.49&&n<8&&ok(toW(T+step))){T+=step;r=(e1/T-1)*30-t;n++}
@@ -716,7 +729,7 @@ function makeEx(m,wk,di,exId,tplSets){
   const mode=loadMode(e),p=planLoad(e,lastPerf(exId,m,o),t,dl,mode);
   // Set types carry over to the same set position from last time.
   const types=prev?prev.x.sets.map(t=>t.ty):[];
-  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.assist?{assist:true,abw:mode.abw}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>withType({w:p.w,r:p.r,pw:p.w,pr:p.r,done:false},types[i]))};
+  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>withType({w:p.w,r:p.r,pw:p.w,pr:p.r,done:false},types[i]))};
 }
 /* Set types: none = regular, 'myo' = myorep (mini-sets, log total reps), 'match' = myorep match (target = set 1's reps). */
 function withType(t,ty){if(ty==='myo'||ty==='match')t.ty=ty;return t}
@@ -725,6 +738,16 @@ function matchTargets(x){
   const f=x.sets[0],ch=[];if(!f||!f.done||!(f.r>0))return ch;
   x.sets.forEach((t,i)=>{if(i>0&&t.ty==='match'&&!t.done&&(t.r!==f.r||t.pr!==f.r)){t.r=f.r;t.pr=f.r;ch.push(i)}});
   return ch;
+}
+/* Today's bodyweight. Session exercises that use bodyweight keep it in abw; bodyweight-only sets show it as their weight. */
+const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
+// A new bodyweight keeps each unlogged set's total load: bodyweight-only sets take the new weight, added weight shrinks
+// when you are heavier, assistance grows. Added weight and assistance round to the exercise's step and never go below 0.
+function setBodyweight(s,v){
+  for(const x of s.exs){if(x.abw==null)continue;const d=v-x.abw,inc=(ex(x.exId)||{}).inc||5;x.abw=v;if(!d)continue;
+    const adj=w=>w==null?w:Math.max(0,roundTo(x.plus?w-d:w+d,inc));
+    for(const t of x.sets){if(t.done)continue;
+      if(x.bwo){t.w=v;t.pw=v}else if(x.plus||x.assist){t.w=adj(t.w);t.pw=adj(t.pw)}}}
 }
 /* Blank mesocycles: days start empty, and the exercises in a day's workout become that day's plan for later weeks. */
 const BLANK_WD={1:[0],2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
@@ -905,6 +928,7 @@ function render(){
   $('#app').innerHTML='<div class="wrap">'+v+'</div>'+tabbar();
   if(ui.chart)bindChart();
   window.scrollTo(0,y);
+  maybeAskBw();
 }
 function tabbar(){
   const t=[['workout','Workout',I.t_work],['mesos','Mesos',I.t_meso],['templates','Templates',I.t_tpl],['exercises','Exercises',I.t_ex],['more','More',I.t_more]];
@@ -920,10 +944,10 @@ function viewWorkout(){
   s.exs.forEach((x,ei)=>{
     const e=ex(x.exId),mu=e.muscle;
     if(mu!==last){h+=badge(mu);last=mu}
-    h+='<section class="ex" data-ei="'+ei+'"><div class="ex-h"><div class="grow"><h3>'+esc(e.name)+'</h3><p>'+(e.bw?'Bodyweight @ <u data-act="bwedit">'+fmt(S.prefs.bw)+' '+unit()+'</u>':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+' · '+e.lo+'–'+e.hi+' reps</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
+    h+='<section class="ex" data-ei="'+ei+'">'+(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+esc(e.name)+'</h3><p>'+(x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+' · '+e.lo+'–'+e.hi+' reps</p></div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
     if(x.swap)h+='<div class="flag">Severe joint pain last time. Consider replacing this exercise.</div>';
     if(x.note)h+='<div class="note">'+esc(x.note)+'</div>';
-    h+='<div class="cols"><span></span><span>Weight</span><span>Reps</span><span></span><span>Log</span></div>';
+    h+='<div class="cols"><span></span><span>'+(x.plus?'Added':x.assist?'Assist':'Weight')+'</span><span>Reps</span><span></span><span>Log</span></div>';
     x.sets.forEach((t,si)=>{
       h+='<div class="set'+(t.done?' done':'')+'" data-ei="'+ei+'" data-si="'+si+'">'+(t.ty?'<button class="ib stl" data-act="setmenu" aria-label="'+SET_TY[t.ty].name+' set. Set menu">'+SET_TY[t.ty].short+'</button>':'<button class="ib" data-act="setmenu" aria-label="Set menu">'+I.kebab+'</button>')
        +'<input inputmode="decimal" enterkeyhint="done" data-chg="setw" value="'+fmt(t.w)+'" placeholder="–" aria-label="Weight">'
@@ -1077,7 +1101,7 @@ function muscleHasDone(s,mu){return s.exs.some(x=>muscleOf(x)===mu&&x.sets.some(
 function toggleSet(ei,si){
   const s=curSession(),x=s.exs[ei],t=x.sets[si],mu=muscleOf(x);
   if(!t.done){
-    if(!(t.w>0)){toast('Enter a weight first');return}
+    if(!(t.w>0||((x.plus||x.assist)&&t.w===0))){toast('Enter a weight first');return}
     if(!(t.r>0)){toast('Enter the reps');return}
     const first=!muscleHasDone(s,mu);
     const dv=first?deriveSoreness(mu):null;
@@ -1131,6 +1155,14 @@ function openSetup(){
    +'<p style="color:var(--muted);font-size:14px">Bodyweight is used for exercises like pull-ups and dips.</p>'
    +'<div class="foot"><button class="btn pri" data-act="setupsave">Save</button></div>');
 }
+function bwSheet(first){const s=curSession(),cur=(s&&s.exs.find(x=>x.abw!=null)||{}).abw??S.prefs.bw;
+  sheet('<h2>Today’s bodyweight</h2><div class="field"><label for="f_bwd">Bodyweight ('+unit()+')</label><input id="f_bwd" class="in" inputmode="decimal" value="'+fmt(cur)+'"></div><p style="color:var(--muted)">'+(first?'Your last entry is filled in. ':'')+'Bodyweight exercises use it, and added weight or assistance adjusts so the planned load stays the same.</p><div class="foot"><button class="btn" data-act="'+(first?'bwsame':'close')+'">'+(first?'Same as last time':'Cancel')+'</button><button class="btn pri" data-act="bwdaysave">Save</button></div>');
+  if(first)setTimeout(()=>{const i=$('#f_bwd');if(i)i.select()},0)}
+function maybeAskBw(){
+  if(ui.tab!=='workout'||ui.signin||!$('#sheet').hidden)return;
+  const m=meso(),s=m&&curSession();if(!s||s.done||s.bwAsked||!usesBw(s)||s.exs.some(x=>x.sets.some(t=>t.done)))return;
+  const k=m.id+':'+s.key;ui.bwShown=ui.bwShown||{};if(ui.bwShown[k])return;ui.bwShown[k]=1;bwSheet(true);
+}
 function promptSore(){const d=today();if(ui.soreDay===d||!dueSoreness().length||!$('#sheet').hidden)return;ui.soreDay=d;openSoreCheck()}
 function soreBanner(){const n=dueSoreness().length;return n?'<button class="li" data-act="scopen" style="margin-top:12px;background:var(--accent-soft);color:var(--accent)"><div><b>Soreness check</b><small style="color:inherit">'+n+' muscle'+(n>1?'s':'')+' to review</small></div><span class="chev">'+I.chev+'</span></button>':''}
 function soreStatus(){
@@ -1165,7 +1197,7 @@ function openPicker(pick,title){
 /* forms */
 function exForm(e){
   e=e||{id:null,name:'',muscle:'chest',equip:'',lo:8,hi:12,inc:5,bw:false};
-  sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eq">Equipment</label><input id="f_eq" class="in" value="'+esc(e.equip)+'"></div></div><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div><div class="field"><label for="f_bw">Bodyweight exercise</label><select id="f_bw" class="in"><option value="0"'+(e.bw||e.assist?'':' selected')+'>No</option><option value="1"'+(e.bw?' selected':'')+'>Yes</option><option value="2"'+(e.assist?' selected':'')+'>Assisted machine</option></select></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
+  sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eq">Equipment</label><input id="f_eq" class="in" value="'+esc(e.equip)+'"></div></div><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div><div class="field"><label for="f_bw">Bodyweight exercise</label><select id="f_bw" class="in"><option value="0"'+(e.bw||e.assist?'':' selected')+'>No</option><option value="1"'+(e.bw&&!e.plus?' selected':'')+'>Yes</option><option value="3"'+(e.plus?' selected':'')+'>Yes, plus added weight</option><option value="2"'+(e.assist?' selected':'')+'>Assisted machine</option></select></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
 }
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
 
@@ -1191,6 +1223,10 @@ ldsave(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId),b=num($('#f_bar').valu
   mark('core');commit(s);closeSheet();render();toast(nS?'Entering one end. Total is bar plus both ends.':'Entering total weight.')},
 tab(el){ui.tab=el.dataset.v;ui.sub=null;ui.tpl=null;render();window.scrollTo(0,0)},
 log(el){const c=ctx(el);toggleSet(c.ei,c.si)},
+bwday(){bwSheet(false)},
+bwsame(){const s=curSession();s.bwAsked=true;commit(s);closeSheet();render()},
+bwdaysave(){const v=num($('#f_bwd').value);if(!(v>0)){toast('Enter a number');return}
+  const s=curSession();S.prefs.bw=v;setBodyweight(s,v);s.bwAsked=true;commit(s);mark('core');closeSheet();render()},
 bwedit(){sheet('<h2>Bodyweight</h2><div class="field"><label for="f_bw">Bodyweight ('+unit()+')</label><input id="f_bw" class="in" inputmode="decimal" value="'+fmt(S.prefs.bw)+'"></div><p style="color:var(--muted)">Used to prefill bodyweight exercises in sessions you have not opened yet.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="bwsave">Save</button></div>')},
 bwsave(){const v=num($('#f_bw').value);if(v>0){S.prefs.bw=v;mark('core');closeSheet();render()}else toast('Enter a number')},
 /* feedback */
@@ -1273,7 +1309,7 @@ newex(){exForm()},
 editex(el){exForm(ex(el.dataset.id))},
 exsave(el){const name=$('#f_name').value.trim();if(!name){toast('Give it a name');return}
   const lo=Math.max(1,parseInt($('#f_lo').value)||8),hi=Math.max(lo,parseInt($('#f_hi').value)||12),inc=num($('#f_inc').value)||5;
-  const d={name,muscle:$('#f_mu').value,equip:$('#f_eq').value.trim(),lo,hi,inc,bw:$('#f_bw').value==='1',assist:$('#f_bw').value==='2',load:$('#f_ld').value,bar:num($('#f_bar').value)||0};
+  const d={name,muscle:$('#f_mu').value,equip:$('#f_eq').value.trim(),lo,hi,inc,bw:['1','3'].includes($('#f_bw').value),plus:$('#f_bw').value==='3',assist:$('#f_bw').value==='2',load:$('#f_ld').value,bar:num($('#f_bar').value)||0};
   if(el.dataset.id)Object.assign(ex(el.dataset.id),d);else{let id=idOf(name);while(ex(id))id+='-'+rid().slice(0,3);S.exercises.push({id,...d})}
   mark('core');closeSheet();render()},
 exdel(el){const id=el.dataset.id;if(S.templates.some(t=>t.days.some(d=>d.items.some(i=>i.exId===id)))){toast('Remove it from your templates first');return}

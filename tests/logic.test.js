@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw
 };`);
 
 let ok = 0, bad = 0;
@@ -65,7 +65,7 @@ eq(T.S.prefs.needsSetup, true, 'new users get the setup sheet');
 T.S.prefs.barLoad = 'side';
 eq(T.loadMode(bench), { side: true, bar: 45 }, 'one end pref uses the 45 bar');
 eq(T.loadMode(curl), { side: false, bar: 0 }, 'dumbbell is total');
-eq(T.loadMode(pullup), { side: false, bar: 0 }, 'bodyweight is total');
+eq(T.loadMode(pullup), { side: false, bar: 0, bwo: true, abw: T.S.prefs.bw }, 'bodyweight-only uses bodyweight');
 T.S.prefs.barLoad = 'total'; eq(T.loadMode(bench), { side: false, bar: 0 }, 'global pref total'); T.S.prefs.barLoad = 'side';
 eq(T.loadMode({ ...bench, load: 'total' }), { side: false, bar: 0 }, 'per-exercise override total');
 eq(T.loadMode({ ...curl, load: 'side', bar: 20 }), { side: true, bar: 20 }, 'per-exercise override one end + custom bar');
@@ -245,6 +245,35 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   eq(T.planLoad(a, { tot: 140, r: 10, rir: 2 }, 2, false, mode).w, 60, 'holds assistance while reps climb');
   eq(T.planLoad(a, { tot: 195, r: 14, rir: 0 }, 0, false, mode).w >= 0, true, 'assistance never goes below zero');
   eq(T.vsPlan(mode, { w: 50, r: 10, pw: 60, pr: 10, done: true }, 2), 'up', 'less assistance than planned is up'); }
+
+// ---- bodyweight exercises ----
+{ T.S = T.seedState(); T.normalize(); T.S.prefs.bw = 200;
+  const wp = T.ex('pullup-weighted-normal-grip'), pu = T.ex('pullup-parallel-grip');
+  eq([wp.plus, wp.bw, !!pu.plus], [true, true, false], 'weighted bodyweight exercises take added weight');
+  const mp = T.loadMode(wp); eq(T.totOf(mp, 25), 225, 'total = bodyweight + added');
+  eq(T.planLoad(wp, null, 3, false, mp).w, 0, 'first time starts with nothing added');
+  eq(T.planLoad(wp, { tot: 225, r: 10, rir: 2 }, 2, false, mp).w, 25, 'holds the same total');
+  const mb = T.loadMode(pu);
+  eq(T.planLoad(pu, { tot: 200, r: 8, rir: 3 }, 2, false, mb), { w: 200, r: 9 }, 'bodyweight-only progresses by reps, never adds weight');
+  eq(T.planLoad(pu, { tot: 200, r: 14, rir: 0 }, 0, false, mb).w, 200, 'even past the top of the range');
+  // A session with all three kinds, then bodyweight goes up 5.
+  const s = { exs: [
+    { exId: wp.id, plus: true, abw: 200, sets: [{ w: 25, pw: 25, r: 8, done: true }, { w: 25, pw: 25, r: 8 }] },
+    { exId: pu.id, bwo: true, abw: 200, sets: [{ w: 200, pw: 200, r: 9 }] },
+    { exId: 'assisted-dip', assist: true, abw: 200, sets: [{ w: 60, pw: 60, r: 10 }] },
+    { exId: 'barbell-bent-over-row', sets: [{ w: 135, pw: 135, r: 8 }] }] };
+  eq(T.usesBw(s), true, 'session uses bodyweight');
+  T.setBodyweight(s, 205);
+  eq([s.exs[0].sets[1].w, s.exs[0].sets[1].pw, s.exs[0].sets[0].w], [20, 20, 25], 'heavier: added weight drops, logged sets untouched');
+  eq(s.exs[1].sets[0].w, 205, 'bodyweight-only takes the new bodyweight');
+  eq(s.exs[2].sets[0].w, 65, 'heavier: more assistance keeps the load');
+  eq(s.exs[3].sets[0].w, 135, 'other exercises unchanged');
+  T.setBodyweight(s, 240); eq(s.exs[0].sets[1].w, 0, 'added weight never goes below zero');
+  eq(T.usesBw({ exs: [{ sets: [] }] }), false, 'no bodyweight exercises, no prompt');
+  const s2 = { exs: [{ exId: wp.id, plus: true, abw: 200, sets: [{ w: 22.5, pw: 22.5, r: 8 }] }] }; T.setBodyweight(s2, 200);
+  eq(s2.exs[0].sets[0].w, 22.5, 'same bodyweight leaves weights exactly as they are');
+  const old = { v: 1, libv: 2, prefs: {}, exercises: [{ ...wp, plus: undefined }, { ...T.ex('pushup-weighted-narrow-grip'), plus: undefined, equip: 'Weighted vest' }], templates: [], mesos: [] };
+  T.upgradeLib(old); eq([old.exercises[0].plus, old.exercises[1].plus], [true, undefined], 'upgrade flags untouched weighted exercises only'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
