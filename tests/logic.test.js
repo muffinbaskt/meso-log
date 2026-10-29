@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched
 };`);
 
 let ok = 0, bad = 0;
@@ -336,6 +336,16 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq(v3.exercises.map(e => e.name), ['Leg Press', 'Bodyweight Squat'], 'it gets only the newly added exercise');
   const e = v3.exercises[1]; eq([e.muscle, e.bw, e.lo, e.hi], ['quads', true, 10, 20], 'Bodyweight Squat: quads, bodyweight, 10-20 reps');
   v3.exercises.pop(); v3.libv = 4; eq(T.upgradeLib(v3), false, 'deleting it later sticks'); }
+
+// ---- replace and reorder for the rest of the mesocycle ----
+{ const items = [{ exId: 'a', sets: 3 }, { exId: 'b', sets: 4, ss: true }, { exId: 'c', sets: 2 }, { exId: 'd', sets: 3 }];
+  eq(T.reorderItems(items, ['c', 'a', 'b', 'd']).map(i => i.exId), ['c', 'a', 'b', 'd'], 'day plan takes the new order');
+  eq(T.reorderItems(items, ['c', 'a']).map(i => i.exId), ['c', 'a', 'b', 'd'], 'exercises not in today\'s workout keep their place at the end');
+  eq(T.reorderItems(items, ['b', 'a'])[0], { exId: 'b', sets: 4, ss: true }, 'set counts and links move with the exercise');
+  const it2 = items.map(i => ({ ...i })); eq(T.replaceItem(it2, 2, 'c', 'z'), true, 'replace finds the slot'); eq(it2.map(i => i.exId), ['a', 'b', 'z', 'd'], 'only that slot changes');
+  const it3 = [{ exId: 'a', sets: 3 }, { exId: 'c', sets: 2 }]; T.replaceItem(it3, 0, 'c', 'z'); eq(it3.map(i => i.exId), ['a', 'z'], 'falls back to matching the exercise when positions differ');
+  const m = { sessions: { '2-0': { wk: 2, di: 0, exs: [{ sets: [{ done: false }] }] }, '3-0': { wk: 3, di: 0, exs: [{ sets: [{ done: true }] }] }, '2-1': { wk: 2, di: 1, exs: [] }, '1-0': { wk: 1, di: 0, exs: [] } } };
+  T.dropUntouched(m, 0, 1); eq(Object.keys(m.sessions).sort(), ['1-0', '2-1', '3-0'], 'later unstarted sessions of that day rebuild; started ones and other days stay'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
