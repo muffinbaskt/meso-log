@@ -135,6 +135,12 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .seg button.on{background:var(--accent);color:var(--accent-ink)}
 .pinfo{margin-top:12px;color:var(--muted);font-size:14px}
 .pinfo p{margin:6px 0}
+.ordr{display:flex;align-items:center;gap:8px;padding:8px 6px;margin-top:6px;border-radius:10px;background:var(--surface2)}
+.ordr.drag{box-shadow:0 0 0 2px var(--accent);opacity:.95}
+.grip{width:36px;height:36px;display:grid;place-items:center;color:var(--muted);touch-action:none;cursor:grab}
+.grip svg{width:20px;height:20px}
+.onm{font-weight:600}
+.onm small{display:block;font-weight:400;color:var(--muted);font-size:12px}
 .set .chartb.up{color:var(--ok)}
 .set .chartb.down{color:var(--bad)}
 .row-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:12px;background:var(--surface);color:var(--accent);font-weight:600;margin-top:6px}
@@ -815,6 +821,13 @@ function ssGroups(exs){
   for(let i=0;i<exs.length;i++){const g=[i];while(exs[i].ss&&i+1<exs.length&&!exs[i].ivl&&!exs[i+1].ivl)g.push(++i);out.push(g)}
   return out;
 }
+/* "Rest of the mesocycle" changes write into the mesocycle's day plan (m.days[di].items), which later weeks are built from.
+   Later sessions of that day that were saved but never started are dropped so they rebuild from the new plan. */
+function reorderItems(items,exIds){const left=items.slice(),out=[];
+  for(const id of exIds){const k=left.findIndex(i=>i.exId===id);if(k>=0)out.push(left.splice(k,1)[0])}
+  return out.concat(left)}
+function replaceItem(items,idx,oldId,newId){const it=items[idx]&&items[idx].exId===oldId?items[idx]:items.find(i=>i.exId===oldId);if(it)it.exId=newId;return !!it}
+function dropUntouched(m,di,wk){for(const k of Object.keys(m.sessions)){const s=m.sessions[k];if(s.di===di&&s.wk>wk&&!s.exs.some(x=>x.sets.some(t=>t.done)))delete m.sessions[k]}}
 /* Today's bodyweight. Session exercises that use bodyweight keep it in abw; bodyweight-only sets show it as their weight. */
 const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
 // A new bodyweight keeps each unlogged set's total load: bodyweight-only sets take the new weight, added weight shrinks
@@ -977,6 +990,7 @@ const I={
  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4V20.5H6z"/><path d="M12 11v5M9.5 13.5h5"/></svg>',
+ grip:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
  swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
  skip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l9 7-9 7zM18 5v14"/></svg>',
@@ -1277,7 +1291,6 @@ function soreStatus(){
   return h+'</div>';
 }
 
-function moveEx(ei,d){const s=curSession(),j=ei+d;if(j<0||j>=s.exs.length)return;[s.exs[ei],s.exs[j]]=[s.exs[j],s.exs[ei]];syncDay(meso(),s);commit(s)}
 function updProg(){const s=curSession(),c=sessCounts(s),p=$('#prog');if(p)p.style.width=(c.t?c.d/c.t*100:0)+'%'}
 
 /* pickers */
@@ -1365,11 +1378,20 @@ fbsavepost(){const s=curSession(),mu=ui.fb.mu,xs=s.exs.filter(x=>muscleOf(x)===m
 /* exercise menu */
 exmenu(el){const c=ctx(el);ui.ei=c.ei;const s=curSession(),x=s.exs[ui.ei],nx=s.exs[ui.ei+1],linked=x.ss&&nx;sheet('<h2>Exercise</h2><div class="menu">'
   +(linked||(nx&&!x.ivl&&!nx.ivl)?'<button class="li" data-act="xlink">'+I.link+'<div><b>'+(linked?'Unlink superset':'Superset with next exercise')+'</b><small>'+(linked?'Separate from ':'Alternate sets with ')+esc(ex(nx.exId).name)+'</small></div></button>':'')
-  +'<button class="li" data-act="xnote">'+I.note+'New note</button><button class="li" data-act="xup">'+I.up+'Move up</button><button class="li" data-act="xdn">'+I.down+'Move down</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
+  +'<button class="li" data-act="xnote">'+I.note+'New note</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
 xnote(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Note</h2><div class="field"><label for="f_note">Note for this exercise</label><textarea id="f_note" class="in">'+esc(x.note)+'</textarea></div><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="xnotesave">Save</button></div>')},
 xnotesave(){const s=curSession();s.exs[ui.ei].note=$('#f_note').value.trim();commit(s);closeSheet();render()},
-xup(){const s=curSession();moveEx(ui.ei,-1);closeSheet();render()},
-xdn(){moveEx(ui.ei,1);closeSheet();render()},
+xorder(){const s=curSession();
+  sheet('<h2>Reorder</h2><p style="color:var(--muted);margin-top:0">Drag the handles to put exercises in order.</p><div id="ordlist">'+s.exs.map((x,i)=>'<div class="ordr" data-i="'+i+'"><span class="grip" data-drag aria-label="Drag to move">'+I.grip+'</span><span class="onm">'+esc(ex(x.exId).name)+'<small>'+esc(MUS[ex(x.exId).muscle].name)+'</small></span></div>').join('')+'</div><div class="foot"><button class="btn" data-act="ordgo" data-v="day">Just today</button><button class="btn pri" data-act="ordgo" data-v="rest">Rest of mesocycle</button></div>')},
+ordgo(el){const s=curSession(),m=meso(),ord=[...document.querySelectorAll('#ordlist .ordr')].map(r=>+r.dataset.i);
+  if(ord.some((v,i)=>v!==i)){s.exs=ord.map(i=>s.exs[i]);
+    if(el.dataset.v==='rest'){if(m.blank)syncDay(m,s);else m.days[s.di].items=reorderItems(m.days[s.di].items,s.exs.map(x=>x.exId));dropUntouched(m,s.di,s.wk)}
+    commit(s)}
+  closeSheet();render()},
+replgo(el){const s=curSession(),m=meso(),r=ui.repl,old=s.exs[r.ei];
+  s.exs[r.ei]=Object.assign(makeEx(m,ui.wk,ui.di,r.id,old.planned),old.ss?{ss:true}:{});
+  if(el.dataset.v==='rest'){if(m.blank)syncDay(m,s);else replaceItem(m.days[s.di].items,r.ei,old.exId,r.id);dropUntouched(m,s.di,s.wk)}
+  commit(s);closeSheet();render()},
 xrep(){const s=curSession();openPicker({kind:'replace',ei:ui.ei,muscle:muscleOf(s.exs[ui.ei])},'Replace with')},
 xjoint(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Joint pain</h2><div class="q"><b>'+esc(ex(x.exId).name)+'</b><span>How do your joints feel on this exercise?</span><div class="opts">'+['None','Mild','Moderate','Severe'].map((t,k)=>'<button class="opt'+(x.joint===k?' on':'')+'" data-act="xjsave" data-v="'+k+'">'+t+'</button>').join('')+'</div></div><p style="color:var(--muted);margin-top:14px">Moderate or severe takes a set off this exercise next time. Severe also flags it for replacement.</p>')},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
@@ -1399,7 +1421,8 @@ doreset(){const m=meso();delete m.sessions[ui.wk+'-'+ui.di];ui.tmp=null;mark('me
 addex(){openPicker({kind:'add'},'Add exercise')},
 pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3))}
-  else if(p.kind==='replace'){const old=s.exs[p.ei];s.exs[p.ei]=makeEx(m,ui.wk,ui.di,id,old.planned)}
+  else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];
+    sheet('<h2>Replace</h2><p>'+esc(ex(old.exId).name)+' → <b>'+esc(ex(id).name)+'</b></p><p style="color:var(--muted)">Swap it for this workout only, or in this day for the rest of the mesocycle?</p><div class="foot"><button class="btn" data-act="replgo" data-v="day">Just today</button><button class="btn pri" data-act="replgo" data-v="rest">Rest of mesocycle</button></div>');return}
   else if(p.kind==='tpl'){const t=S.templates.find(z=>z.id===ui.tpl);t.days[p.di].items.push({exId:id,sets:3});mark('core')}
   if(p.kind!=='tpl'){syncDay(m,s);commit(s)}closeSheet();render()},
 /* mesos */
@@ -1472,6 +1495,15 @@ doimport(){try{const d=ui.imp;S={v:1,prefs:d.prefs||{unit:'lb',bw:200},exercises
   mark('core',...S.mesos.map(m=>'meso:'+m.id));ui.tmp=null;gotoPending();ui.tab='workout';closeSheet();render();toast('Backup imported')}catch(e){toast('Import failed')}}
 };
 document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const f=ACT[el.dataset.act];if(f){e.preventDefault();f(el,e)}});
+
+/* drag to reorder */
+document.addEventListener('pointerdown',e=>{const h=e.target.closest('[data-drag]');if(!h)return;e.preventDefault();
+  const row=h.closest('.ordr'),list=row.parentElement;row.classList.add('drag');   // listen on the page: moving the row in the list would drop pointer capture
+  const move=ev=>{const y=ev.clientY,others=[...list.children].filter(r=>r!==row);
+    const before=others.find(r=>{const b=r.getBoundingClientRect();return y<b.top+b.height/2});
+    if(before){if(row.nextSibling!==before)list.insertBefore(row,before)}else if(list.lastChild!==row)list.appendChild(row)};
+  const up=()=>{row.classList.remove('drag');document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up)};
+  document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up)});
 
 /* input handlers */
 document.addEventListener('change',e=>{
