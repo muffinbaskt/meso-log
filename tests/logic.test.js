@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote
 };`);
 
 let ok = 0, bad = 0;
@@ -346,6 +346,27 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   const it3 = [{ exId: 'a', sets: 3 }, { exId: 'c', sets: 2 }]; T.replaceItem(it3, 0, 'c', 'z'); eq(it3.map(i => i.exId), ['a', 'z'], 'falls back to matching the exercise when positions differ');
   const m = { sessions: { '2-0': { wk: 2, di: 0, exs: [{ sets: [{ done: false }] }] }, '3-0': { wk: 3, di: 0, exs: [{ sets: [{ done: true }] }] }, '2-1': { wk: 2, di: 1, exs: [] }, '1-0': { wk: 1, di: 0, exs: [] } } };
   T.dropUntouched(m, 0, 1); eq(Object.keys(m.sessions).sort(), ['1-0', '2-1', '3-0'], 'later unstarted sessions of that day rebuild; started ones and other days stay'); }
+
+// ---- notes and reminders ----
+{ T.S = T.seedState(); T.normalize();
+  T.ex('dumbbell-curl-alternating').pin = 'Elbows still, slow down';
+  const set = d => ({ w: 50, r: 10, done: d });
+  const s = { exs: [
+    { exId: 'bench-press-wide-grip', sets: [set(true), set(false)] },
+    { exId: 'dumbbell-curl-alternating', sets: [set(false)] },
+    { exId: 'leg-press', sets: [set(false)] }] };
+  eq([T.hasNote(s.exs[0]), T.hasNote(s.exs[1])], [false, true], 'a pinned note shows wherever the exercise appears');
+  eq(T.noteDue(s, 1), false, 'not due while bench press still has a set left');
+  s.exs[0].sets[1].done = true; eq(T.noteDue(s, 1), true, 'due as soon as the last bench set is logged');
+  s.exs[1].noteSeen = true; eq(T.noteDue(s, 1), false, 'reading it clears the reminder');
+  s.exs[0].note = 'Pause on the chest'; eq(T.noteDue(s, 0), true, 'the first exercise\'s note is due from the start');
+  s.exs[2].note = 'Feet high'; eq(T.noteDue(s, 2), false, 'later notes wait for the exercise before them');
+  const ss = { exs: [
+    { exId: 'bench-press-wide-grip', sets: [set(true)] },
+    { exId: 'push-up', ss: true, sets: [set(true)] }, { exId: 'goblet-squat', sets: [set(false)] },
+    { exId: 'leg-press', note: 'x', sets: [set(false)] }] };
+  eq(T.noteDue(ss, 3), false, 'after a superset, the reminder waits for the whole superset'); ss.exs[2].sets[0].done = true;
+  eq(T.noteDue(ss, 3), true, 'and appears once both are done'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
