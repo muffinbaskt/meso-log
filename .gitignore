@@ -1,0 +1,3 @@
+node_modules/
+# Screenshots of the RP app, kept locally as a layout reference only. Never publish them.
+docs/reference/*.png
