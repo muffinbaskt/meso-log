@@ -17,6 +17,13 @@ const eq = (a, b, m) => {
   if (JSON.stringify(a) === JSON.stringify(b)) ok++;
   else { bad++; console.log('FAIL', m, JSON.stringify(a), '!=', JSON.stringify(b)); }
 };
+// The original Upper / Lower sample, kept as a fixture so the end-to-end checks stay the same.
+const UL = [
+  { name: 'Upper A', weekday: 0, items: [['bench-press-wide-grip', 4], ['pullup-parallel-grip', 3], ['dumbbell-shoulder-press', 3], ['cable-triceps-pushdown-bar', 3], ['dumbbell-curl-alternating', 3]] },
+  { name: 'Lower A', weekday: 1, items: [['back-squat', 3], ['romanian-deadlift', 3], ['leg-extension', 3], ['standing-calf-raise', 3]] },
+  { name: 'Upper B', weekday: 3, items: [['seated-cable-row', 3], ['incline-dumbbell-press', 3], ['dumbbell-lateral-raise', 3], ['overhead-cable-triceps-extension', 3], ['concentration-curl', 3], ['dumbbell-bent-over-shrug', 2]] },
+  { name: 'Lower B', weekday: 4, items: [['leg-press', 3], ['lying-leg-curl', 3], ['hip-thrust-barbell', 3], ['seated-calf-raise', 3], ['cable-crunch', 3]] }]
+  .map(d => ({ ...d, items: d.items.map(([exId, sets]) => ({ exId, sets })) }));
 const dstr = n => { const d = new Date(); d.setDate(d.getDate() - n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 
 T.S = T.seedState(); T.normalize();
@@ -85,7 +92,7 @@ eq(T.e1rm(T.totOf({ side: true, bar: 45 }, 25), 10) > T.e1rm(25, 10) * 3, true, 
 // ---- end to end: sessions, history, next week ----
 T.S = T.seedState(); T.normalize();
 T.S.prefs.barLoad = 'side';   // these checks cover one-end entry
-const m = { id: 'm1', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(T.S.templates[0].days)), sessions: {}, created: 1, template: 'x' };
+const m = { id: 'm1', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 1, template: 'x' };
 T.S.mesos.push(m); T.S.activeMeso = 'm1';
 const s1 = T.buildSession(m, 1, 0); m.sessions['1-0'] = s1;
 const bx = s1.exs.find(x => x.exId === 'bench-press-wide-grip');
@@ -166,7 +173,7 @@ eq(T.withType({}, 'reg').ty, undefined, 'regular stores no type');
 eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
 { // strength estimate prefers regular sets over myoreps
   T.S = T.seedState(); T.normalize();
-  const mm = { id: 'm2', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(T.S.templates[0].days)), sessions: {}, created: 2, template: 'x' };
+  const mm = { id: 'm2', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 2, template: 'x' };
   T.S.mesos.push(mm); T.S.activeMeso = 'm2';
   const exId = mm.days[0].items[0].exId;
   mm.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', done: true, fb: {}, exs: [{ exId, side: false, bar: 0, planned: 2, base: 2,
@@ -217,6 +224,9 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   eq(['ab-wheel', 'burpee', 'curl-machine', 'bodyweight-squat-2-3'].some(id => T.ex(id)), false, 'custom exercises from the other app are left out');
   eq(T.ex('bench-press-barbell').name, 'Bench Press (Medium Grip)', 'old ids keep working under the new name');
   eq(T.S.templates[0].days.every(d => d.items.every(i => T.ex(i.exId))), true, 'sample template points at real exercises');
+  eq([T.S.templates.length, T.S.templates[0].name, T.S.templates[0].days.length], [1, "Gay Boy Bryan's Ultimate Gay Plan", 6], 'new users start with the 6-day plan');
+  eq(T.S.templates[0].days.map(d => d.items.length), [3, 4, 2, 3, 4, 3], 'every exercise in the plan made it in');
+  eq(UL.every(d => d.items.every(i => T.ex(i.exId))), true, 'the old sample\'s exercises are all still in the library');
   // An older account: old default names, a renamed built-in, a custom exercise, and logged history.
   const old = { v: 1, prefs: { unit: 'kg', bw: 80 }, exercises: [
       { id: 'barbell-row', name: 'Barbell Row', muscle: 'back', equip: 'Barbell', lo: 6, hi: 10, inc: 2.5 },

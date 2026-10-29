@@ -33,7 +33,7 @@ S = {
   v: 1,
   prefs: { unit: 'lb', bw: 200, bar: 45, barLoad: 'total', needsSetup? },   // needsSetup = show the Welcome sheet (new users only)   // bw = bodyweight, bar = default bar, barLoad = 'side' | 'total' for barbell exercises
   exercises: [{ id, name, muscle, equip, lo, hi, inc, bw, load?, bar? }],   // lo-hi rep range, inc = weight step in ENTERED units
-  templates: [{ id, name, days: [{ name, weekday, items: [{ exId, sets }] }] }],
+  templates: [{ id, name, days: [{ name, weekday, items: [{ exId, sets, ss? }] }] }],   // new users start with the owner's 6-day plan (seedState)
   mesos: [{ id, name, weeks, start, days, sessions, created, template, style, blank? }],   // style 'std' (default) | 'test'; blank = started with no template
   activeMeso: id | null,
   track: { [muscleId]: { workedOn, status: 'open'|'healed', asked: [{d, sore}], lastAsked, healedOn } }

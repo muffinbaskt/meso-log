@@ -627,11 +627,13 @@ const idOf=n=>slug(n);
 function seedState(){
   const exercises=LIB.map(libEx);
   const it=(n,s)=>({exId:libId(n),sets:s});
-  const templates=[{id:'tpl-sample',name:'Upper / Lower (sample)',days:[
-    {name:'Upper A',weekday:0,items:[it('Bench Press (Wide Grip)',4),it('Pullup (Parallel Grip)',3),it('Dumbbell Shoulder Press (Seated)',3),it('Cable Triceps Pushdown (Bar)',3),it('Dumbbell Curl (Alternating)',3)]},
-    {name:'Lower A',weekday:1,items:[it('Barbell Squat (High Bar)',3),it('Romanian Deadlift',3),it('Leg Extension',3),it('Standing Calf Raise',3)]},
-    {name:'Upper B',weekday:3,items:[it('Seated Cable Row',3),it('Dumbbell Press (Medium Incline)',3),it('Dumbbell Lateral Raise',3),it('Cable Overhead Triceps Extension',3),it('Concentration Curl',3),it('Dumbbell Bent Over Shrug (Traps)',2)]},
-    {name:'Lower B',weekday:4,items:[it('Leg Press',3),it('Lying Leg Curl',3),it('Barbell Hip Thrust',3),it('Seated Calf Raise',3),it('Cable Rope Crunch',3)]}]}];
+  const templates=[{id:'tpl-6day',name:"Gay Boy Bryan's Ultimate Gay Plan",days:[
+    {name:'Chest/Tri',weekday:0,items:[it('Dumbbell Press (Flat)',3),it('Dumbbell Overhead Extension',3),it('Pushup (Deficit)',3)]},
+    {name:'Back/Biceps',weekday:1,items:[it('Pullup (Parallel Grip)',3),it('Concentration Curl',3),it('Dumbbell Curl (Alternating)',3),it('Dumbbell Bent Over Shrug (Traps)',3)]},
+    {name:'Legs of Death',weekday:2,items:[it('Goblet Squat',3),it('Dumbbell Hip Thrust (Single Leg)',3)]},
+    {name:'Chest/Tri',weekday:4,items:[it('Dumbbell Press (Flat)',4),it('Dumbbell Overhead Extension',3),it('Pushup (Deficit)',4)]},
+    {name:'Back/Bicep',weekday:5,items:[it('Pullup (Parallel Grip)',3),it('Dumbbell Row (Single-Arm, Supported)',3),it('Dumbbell Curl (Alternating)',3),it('Dumbbell Leaning Shrug (Traps)',3)]},
+    {name:'Legs of Again Death',weekday:6,items:[it('Bulgarian Split Squat (Quad-Focused)',3),it('Goblet Squat',3),it('Barbell Hip Thrust',3)]}]}];
   return {v:1,prefs:{unit:'lb',bw:200,bar:45,barLoad:'total',needsSetup:true},exercises,templates,mesos:[],activeMeso:null,track:{},libv:LIB_V};
 }
 let S=seedState();
