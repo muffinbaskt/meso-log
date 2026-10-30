@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#121417">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://zatngvydcqwlilmhafxj.supabase.co wss://zatngvydcqwlilmhafxj.supabase.co; img-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Meso Log</title>
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link rel="icon" href="icons/favicon-32-v2.png" type="image/png" sizes="32x32">
@@ -888,6 +889,17 @@ function exHistory(exId){
   return out.sort((a,b)=>a.k-b.k);
 }
 const muscleOf=x=>ex(x.exId)?.muscle;
+/* Backup files are checked before import: only these free-text fields (always escaped when shown) may hold markup
+   characters. Ids and every other string go into HTML attributes or unescaped spots, so they must be plain.
+   Returns the path of the first bad value, or null. */
+const TEXT_KEYS=new Set(['name','note','pin','equip','template','meso']);
+function unsafeBackup(d,path){path=path||'backup';
+  if(typeof d==='string')return TEXT_KEYS.has(path.split('.').pop())||/^[\w .:\-\/@+]*$/.test(d)?null:path;
+  if(d===null||typeof d==='number'||typeof d==='boolean')return null;
+  if(typeof d!=='object')return path;
+  for(const k of Object.keys(d)){if(!/^[\w-]+$/.test(k))return path+'.'+k;const bad=unsafeBackup(d[k],path+'.'+k);if(bad)return bad}
+  return null;
+}
 
 /* Soreness check-ins. Training a muscle opens a check. From the next day the app asks "still sore?"
    Yes: ask again tomorrow. No: stop until that muscle is trained again. */
@@ -907,7 +919,7 @@ function deriveSoreness(mu){
 const sessCounts=s=>{let d=0,t=0;for(const x of s.exs){t+=x.sets.length;d+=x.sets.filter(z=>z.done).length}return {d,t}};
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script>
 /* ================================ STORAGE ================================ */
 // Data lives in localStorage on the device. Signed in, it also syncs to Supabase:
@@ -986,6 +998,8 @@ async function deleteAccount(){ok(await sb.rpc('delete_my_account'));await sb.au
 
 <script>
 /* ================================= UI ================================= */
+// GitHub Pages can't send X-Frame-Options, so refuse to run inside another site's frame (clickjacking).
+if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('framed')}
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n==null||n===''?'':String(Math.round(n*100)/100);
@@ -1580,7 +1594,7 @@ document.addEventListener('change',e=>{
   else if(k==='mtpl'){$('#w_md').hidden=!!el.value}
   else if(k==='barload'){S.prefs.barLoad=el.value;mark('core')}
   else if(k==='cx'){ui.cx=el.value;ui.chart=null;render()}
-  else if(k==='import'){const f=el.files&&el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.exercises)||!Array.isArray(d.mesos||[]))throw 0;ui.imp=d;confirmSheet('Replace your data?','This backup has '+(d.mesos||[]).length+' mesocycles and '+(d.templates||[]).length+' templates. Importing replaces everything you have now.','doimport')}catch(err){toast('That file is not a Meso Log backup')}};r.readAsText(f);el.value=''}
+  else if(k==='import'){const f=el.files&&el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.exercises)||!Array.isArray(d.mesos||[]))throw 0;if(unsafeBackup(d)){toast('That backup has damaged or unsafe data, so it was not imported');console.warn('unsafe backup value at',unsafeBackup(d));return}ui.imp=d;confirmSheet('Replace your data?','This backup has '+(d.mesos||[]).length+' mesocycles and '+(d.templates||[]).length+' templates. Importing replaces everything you have now.','doimport')}catch(err){toast('That file is not a Meso Log backup')}};r.readAsText(f);el.value=''}
 });
 document.addEventListener('input',e=>{
   const el=e.target,k=el.dataset.inp;if(!k)return;

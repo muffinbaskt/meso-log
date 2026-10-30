@@ -39,3 +39,10 @@ end $$;
 
 revoke execute on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Size limits (added 2026-10-30). Sign-up is open, so cap what one account can store.
+-- Real data is far smaller: a whole account's settings and library is well under 1 MB, a mesocycle about 100 KB.
+alter table public.user_core drop constraint if exists core_size;
+alter table public.user_core add constraint core_size check (pg_column_size(data) < 2000000);
+alter table public.mesos drop constraint if exists meso_size;
+alter table public.mesos add constraint meso_size check (pg_column_size(data) < 2000000 and length(id) <= 64);
