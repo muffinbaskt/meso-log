@@ -993,7 +993,7 @@ async function initStorage(){
 const authRedirect=()=>location.origin+location.pathname;
 // Cloudflare Turnstile site key (public). Empty = no CAPTCHA. Must be set before Supabase's CAPTCHA setting is turned on,
 // or every sign-in is refused. The secret key goes only in Supabase (Authentication > Attack Protection).
-const TS_KEY='';
+const TS_KEY='0x4AAAAAAFsd4ELe0ESfuEFl';
 let tsReady=null;
 function loadTurnstile(){if(!tsReady)tsReady=new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';sc.async=true;sc.onload=res;sc.onerror=rej;document.head.appendChild(sc)});return tsReady}
 async function sendMagicLink(email,captchaToken){ok(await sb.auth.signInWithOtp({email,options:{emailRedirectTo:authRedirect(),...(captchaToken?{captchaToken}:{})}}))}
