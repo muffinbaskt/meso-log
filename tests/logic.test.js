@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote
 };`);
 
 let ok = 0, bad = 0;
@@ -397,6 +397,17 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq(T.makeEx(mOld, 2, 0, 'bench-press-wide-grip', 3).sets[0].w, null, 'a quick workout done during a running mesocycle does not change its plan');
   const s = { wk: 1, di: 0, fb: { chest: { sor: 0 } }, exs: [{ exId: 'bench-press-wide-grip', base: 3, planned: 3, sets: [{ done: true }, { done: false }, { done: false }] }] };
   T.applyMuscle(q2, s, 'chest'); eq(s.exs[0].sets.length, 3, 'feedback never changes sets in a quick workout'); }
+
+// ---- backup import safety ----
+{ T.S = T.seedState(); T.normalize();
+  // The owner's own backup lives outside the repo (personal data); checked when it is there.
+  const rb = path.join(__dirname, '..', '..', 'Stuff 4 ClaudeBot3000', 'meso-log-backup-2026-10-29.json');
+  if (fs.existsSync(rb)) eq(T.unsafeBackup(JSON.parse(fs.readFileSync(rb, 'utf8'))), null, 'the owner\'s real backup passes');
+  eq(T.unsafeBackup(JSON.parse(JSON.stringify(T.S))), null, 'a fresh account passes');
+  eq(T.unsafeBackup({ exercises: [{ id: 'x', name: '<b>Curl</b> "fun"', pin: 'a < b & c' }] }), null, 'markup in names and notes is fine (always escaped)');
+  eq(T.unsafeBackup({ exercises: [{ id: 'x" onclick="alert(1)', name: 'Curl' }] }), 'backup.exercises.0.id', 'a quote in an id is refused');
+  eq(T.unsafeBackup({ exercises: [{ id: 'x', lo: '<img src=x onerror=alert(1)>' }] }), 'backup.exercises.0.lo', 'markup in a number field is refused');
+  eq(T.unsafeBackup({ mesos: [{ sessions: { '<x>': {} } }] }), 'backup.mesos.0.sessions.<x>', 'markup in a key is refused'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);

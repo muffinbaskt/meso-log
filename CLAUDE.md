@@ -8,7 +8,7 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 
 - Built in a Claude chat as a published artifact (v2), then packaged here. `index.html` is now the source of truth.
 - Smoke tested at 390 px in light and dark with Playwright on 2026-10-29 (every tab and sheet, no console errors). Not yet used for real workouts: the owner is testing it over several weeks before inviting anyone.
-- Logic is covered by `tests/logic.test.js` (199 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
+- Logic is covered by `tests/logic.test.js` (205 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
 - Run locally: `npm run dev`, then open http://localhost:5173 (or just open `index.html`).
 
 ## Layout of the code
@@ -75,6 +75,13 @@ A mesocycle copies its template's days when it starts, so later template edits n
 - Domain registered at Porkbun. DNS there: GitHub Pages A/AAAA records, `www` CNAME, GitHub verification TXT, and Resend's records (`resend._domainkey`, `rsend`, `send`, `_dmarc`).
 - Sign-in emails go through Resend (custom SMTP in Supabase, sender `login@bbqsauce.fit`). Supabase redirect URLs list `https://bbqsauce.fit/**` and localhost.
 - Installable via `manifest.webmanifest` and `icons/`. When an icon changes, give the files a new version suffix (`-v3`) and bump `manifest.webmanifest?v=` in `index.html`: Chrome and Android cache icons by URL, so same-name replacements don't show up. `icons/mascot.png` is the transparent cutout the icons are made from. No service worker yet.
+- **Security** (reviewed 2026-10-30):
+  - A `Content-Security-Policy` meta tag limits scripts to this site and jsDelivr, network calls to the Supabase project, and styles and fonts to Google Fonts. A new external host (CDN, API, image) must be added there or it will be blocked.
+  - supabase-js loads with an `integrity` (SRI) hash. When bumping its version, recompute it: `curl -s <url> | openssl dgst -sha384 -binary | base64`.
+  - The UI block refuses to run inside a frame (GitHub Pages can't send `X-Frame-Options`).
+  - Import runs `unsafeBackup` first: markup characters are only allowed in the always-escaped text fields (`TEXT_KEYS`). Every user string shown in HTML must go through `esc()`.
+  - Row level security was checked from outside: without signing in, reads, writes and `delete_my_account` are all refused.
+  - Size limits on rows are in `supabase/schema.sql`.
 - `docs/reference/*.png` are gitignored on purpose: RP screenshots must never be published.
 
 ## Storage
