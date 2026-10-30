@@ -82,6 +82,7 @@ A mesocycle copies its template's days when it starts, so later template edits n
   - Import runs `unsafeBackup` first: markup characters are only allowed in the always-escaped text fields (`TEXT_KEYS`). Every user string shown in HTML must go through `esc()`.
   - Row level security was checked from outside: without signing in, reads, writes and `delete_my_account` are all refused.
   - Size limits on rows are in `supabase/schema.sql`.
+  - Sign-in CAPTCHA: Cloudflare Turnstile, off while `TS_KEY` (script block 2) is empty. With a key, `mountCaptcha` renders an invisible-unless-needed widget on the sign-in screen and `sendMagicLink` passes `captchaToken`. Order matters: deploy the site key first, then turn on CAPTCHA in Supabase (Authentication > Attack Protection, Turnstile secret key), or sign-ins fail. Tested with Cloudflare's always-pass test key `1x00000000000000000000AA`.
 - `docs/reference/*.png` are gitignored on purpose: RP screenshots must never be published.
 
 ## Storage
