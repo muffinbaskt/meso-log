@@ -666,10 +666,16 @@ function convertUnits(st,to){
 /* Target reps-in-reserve: starts at 3 and falls to 0 over the accumulation weeks; the final week is a deload. */
 // Target RIR per week. 'std': 3 falling to 0. 'test': week 1 goes to 0-1 RIR (stored as 0.5) to measure the real max,
 // then 2 falling to 0. The last week is always the deload at 5.
-function rirFor(m,wk){const a=m.weeks-1;if(wk>a)return 5;
+function rirFor(m,wk){if(m.quick)return QUICK_RIR;const a=m.weeks-1;if(wk>a)return 5;
   if(m.style==='test'){if(wk===1)return 0.5;return a<3?0:Math.round(2*(a-wk)/(a-2))}
   if(a<2)return 2;return Math.round(3*(a-wk)/(a-1))}
 const rirLabel=r=>r===0.5?'0–1':String(r);
+/* Quick workouts: a one-off session outside any plan, stored as a mesocycle with quick: true (one week, one day).
+   No RIR target, no deload, no set changes from feedback. Sets count as history and charts, assumed at QUICK_RIR
+   for later estimates. Suggestions repeat the last logged best set of each exercise. */
+const QUICK_RIR=2;
+const isDl=(m,wk)=>!m.quick&&wk===m.weeks;
+const plans=()=>S.mesos.filter(m=>!m.quick);
 
 /* Best logged set of an exercise before a given point, skipping deload weeks when other data exists. */
 function lastPerf(exId,m,beforeOrd){
@@ -680,7 +686,7 @@ function lastPerf(exId,m,beforeOrd){
       if(mm===m&&ord(s)>=beforeOrd)continue;
       const x=s.exs.find(e=>e.exId===exId);if(!x)continue;
       const done=x.sets.filter(t=>t.done&&t.w>0&&t.r>0);if(!done.length)continue;
-      c.push({mm,s,x,done,k:mm.created*1000+ord(s),dl:s.wk===mm.weeks});
+      c.push({mm,s,x,done,k:mm.created*1000+ord(s),dl:isDl(mm,s.wk)});
     }
   }
   if(!c.length)return null;
@@ -695,7 +701,7 @@ function lastPerf(exId,m,beforeOrd){
 function prevWith(m,exId,o){
   let hit=null;
   for(const s of Object.values(m.sessions)){
-    if(ord(s)>=o||s.wk===m.weeks)continue;
+    if(ord(s)>=o||isDl(m,s.wk))continue;
     const x=s.exs.find(e=>e.exId===exId);if(!x||!x.sets.some(t=>t.done))continue;
     if(!hit||ord(s)>ord(hit.s))hit={s,x};
   }
@@ -774,7 +780,7 @@ function resize(x,n){
   x.planned=n;
 }
 function applyMuscle(m,s,muscle){
-  const fb=s.fb[muscle];if(!fb||fb.sor==null||s.wk===m.weeks)return;
+  const fb=s.fb[muscle];if(m.quick||!fb||fb.sor==null||isDl(m,s.wk))return;
   const prev=prevMuscle(m,muscle,ord(s));const pf=(prev&&prev.fb&&prev.fb[muscle])||{};
   fb.delta=prioDelta(setDelta(fb.sor,pf.pump,pf.vol),prioOf(m,muscle),fb.sor,pf.vol);
   const xs=s.exs.filter(x=>!x.ivl&&ex(x.exId)?.muscle===muscle);   // interval rounds are fixed by their own plan
@@ -782,12 +788,12 @@ function applyMuscle(m,s,muscle){
   xs.forEach((x,i)=>resize(x,counts[i]));
 }
 function makeEx(m,wk,di,exId,tplSets){
-  const e=ex(exId),o=(wk-1)*100+di,dl=wk===m.weeks,t=rirFor(m,wk);
+  const e=ex(exId),o=(wk-1)*100+di,dl=isDl(m,wk),lp=lastPerf(exId,m,o),t=m.quick?(lp?lp.rir:QUICK_RIR):rirFor(m,wk);
   if(e.ivl)return ivlEx(e,m,o,dl);
   const prev=prevWith(m,exId,o);let base=prev?(prev.x.planned||prev.x.sets.length):tplSets;let swap=false;
   if(prev&&prev.x.joint>=2){base=Math.max(1,base-1);swap=prev.x.joint>=3}
   if(dl)base=Math.max(1,Math.ceil(base*0.5));
-  const mode=loadMode(e),p=planLoad(e,lastPerf(exId,m,o),t,dl,mode);
+  const mode=loadMode(e),p=planLoad(e,lp,t,dl,mode);
   // Set types carry over to the same set position from last time.
   const types=prev?prev.x.sets.map(t=>t.ty):[];
   return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>withType({w:p.w,r:p.r,pw:p.w,pr:p.r,done:false},types[i]))};
@@ -815,7 +821,7 @@ function ivlNext(prev,rounds,base0){
 function lastIvl(exId,m,beforeOrd){
   let best=null;
   for(const mm of S.mesos){if(mm!==m&&mm.created>m.created)continue;
-    for(const s of Object.values(mm.sessions)){if(mm===m&&ord(s)>=beforeOrd)continue;if(s.wk===mm.weeks)continue;
+    for(const s of Object.values(mm.sessions)){if(mm===m&&ord(s)>=beforeOrd)continue;if(isDl(mm,s.wk))continue;
       const x=s.exs.find(e=>e.exId===exId&&e.ivl);if(!x||!x.sets.some(t=>t.done))continue;
       const k=mm.created*1000+ord(s);if(!best||k>best.k)best={k,sets:x.sets}}}
   return best&&best.sets;
@@ -860,6 +866,8 @@ function setBodyweight(s,v){
 const BLANK_WD={1:[0],2:[0,3],3:[0,2,4],4:[0,1,3,4],5:[0,1,2,3,4],6:[0,1,2,3,4,5],7:[0,1,2,3,4,5,6]};
 function blankDays(n){return BLANK_WD[n].map((wd,i)=>({name:'Day '+(i+1),weekday:wd,items:[]}))}
 function syncDay(m,s){if(m&&m.blank)m.days[s.di].items=s.exs.map(x=>({exId:x.exId,sets:x.base||x.sets.length,...(x.ss?{ss:true}:{})}))}
+function quickMeso(ret){const d=new Date();
+  return {id:rid(),name:'Quick workout',quick:true,blank:true,weeks:1,start:today(),days:[{name:'Quick workout',weekday:(d.getDay()+6)%7,items:[]}],sessions:{},created:Date.now(),template:'None',style:'std',...(ret?{ret}:{})}}
 function buildSession(m,wk,di){
   const day=m.days[di];
   return {wk,di,key:wk+'-'+di,exs:day.items.filter(i=>ex(i.exId)).map(i=>Object.assign(makeEx(m,wk,di,i.exId,i.sets),i.ss?{ss:true}:{})),fb:{},done:false,date:null};
@@ -875,7 +883,7 @@ function exHistory(exId){
     const done=x.sets.filter(t=>t.done&&t.w>0&&t.r>0);if(!done.length)continue;
     const T=t=>totOf(x,t.w);
     let best=done[0];for(const t of done)if(e1rm(T(t),t.r)>e1rm(T(best),best.r))best=t;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,wk:s.wk,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
   }
   return out.sort((a,b)=>a.k-b.k);
 }
@@ -1055,10 +1063,10 @@ function tabbar(){
 }
 function viewWorkout(){
   const m=meso();
-  if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No mesocycle yet</h2><p>Pick a template and start a training block. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">Start a mesocycle</button></div>';
-  const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=ui.wk===m.weeks,c=sessCounts(s);
-  let h='<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div><button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
-  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>'+(s.done?'<span class="chip">Finished '+esc(s.date||'')+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
+  if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No mesocycle yet</h2><p>Pick a template and start a training block. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">Start a mesocycle</button><p style="margin-top:22px">Just want to try it out? Log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
+  const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=isDl(m,ui.wk),c=sessCounts(s);
+  let h=m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div><button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div><button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
+  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">Finished '+esc(s.date||'')+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
   let last=null,letter=0;
   const head=(x,ei,tag)=>{const e=ex(x.exId);
     let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p>'+(hasNote(x)?((d)=>'<button class="notechip'+(d?' due':'')+'" data-act="noteopen">'+I.note+(d?'Read note':'Note')+'</button>')(noteDue(s,ei)):'')+'</div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
@@ -1087,7 +1095,7 @@ function viewWorkout(){
     x.sets.forEach((t,si)=>{h+=row(x,ei,t,si)});
     h+='</section>';
   }
-  if(!s.exs.length)h+='<div class="empty">'+(m.blank?'This day is empty. Add exercises and they carry over to this day every week.':'No exercises on this day.')+'</div>';
+  if(!s.exs.length)h+='<div class="empty">'+(m.quick?'Add any exercises you like. Each one starts from the last time you logged it, and everything you log shows up in its history and charts.':m.blank?'This day is empty. Add exercises and they carry over to this day every week.':'No exercises on this day.')+'</div>';
   h+='<button class="row-btn quiet" data-act="addex" style="margin-top:14px">'+I.plus+'Add exercise</button>';
   if(!s.done)h+='<button class="row-btn main" data-act="finish" style="margin-top:14px">Finish workout</button>';
   h+='</div>';
@@ -1095,14 +1103,18 @@ function viewWorkout(){
 }
 function viewMesos(){
   let h='<div class="page-h gut"><h1>Mesocycles</h1><p>Training blocks that progress week to week, ending with a deload.</p></div><div class="gut">';
-  h+='<button class="row-btn main" data-act="newmeso">New mesocycle</button>';
-  if(!S.mesos.length)h+='<div class="empty">No blocks yet.</div>';
-  [...S.mesos].reverse().forEach(m=>{
+  h+='<button class="row-btn main" data-act="newmeso">New mesocycle</button><button class="row-btn quiet" data-act="quick" style="margin-top:10px">'+I.plus+'Quick workout</button>';
+  const qs=S.mesos.filter(m=>m.quick);
+  if(!plans().length)h+='<div class="empty">No blocks yet.</div>';
+  plans().reverse().forEach(m=>{
     const total=m.weeks*m.days.length,done=Object.values(m.sessions).filter(s=>s.done).length,p=nextPending(m);
     h+='<div class="card"><h3>'+esc(m.name)+(m.id===S.activeMeso?'<span class="tag">Active</span>':'')+'</h3><p>'+m.weeks+' weeks · '+m.days.length+' days a week · from '+esc(m.start)+(m.style==='test'?' · test week':'')+'</p><div class="meter"><i style="width:'+(done/total*100)+'%"></i></div><p class="num">'+done+' of '+total+' workouts done'+(done<total?' · next is week '+p.wk+', day '+(p.di+1):' · complete')+'</p><div class="acts">'
       +(m.id===S.activeMeso?'':'<button class="btn pri" data-act="activate" data-id="'+m.id+'">Make active</button>')
       +'<button class="btn" data-act="openmeso" data-id="'+m.id+'">Open</button><button class="btn" data-act="prio" data-id="'+m.id+'">Priorities</button><button class="btn bad" data-act="delmeso" data-id="'+m.id+'">Delete</button></div></div>';
   });
+  if(qs.length){h+='<div class="sec">Quick workouts</div>';
+    qs.slice().reverse().forEach(m=>{const s=m.sessions['1-0'],c=s?sessCounts(s):{d:0},n=s?s.exs.length:0;
+      h+='<div class="card"><h3>'+esc((s&&s.date)||m.start)+(m.id===S.activeMeso?'<span class="tag">Open</span>':'')+'</h3><p>'+n+' exercise'+(n===1?'':'s')+' · '+c.d+' set'+(c.d===1?'':'s')+' logged'+(s&&s.exs.length?' · '+esc(s.exs.slice(0,3).map(x=>(ex(x.exId)||{}).name).filter(Boolean).join(', '))+(s.exs.length>3?'…':''):'')+'</p><div class="acts"><button class="btn" data-act="openmeso" data-id="'+m.id+'">Open</button><button class="btn bad" data-act="delmeso" data-id="'+m.id+'">Delete</button></div></div>'})}
   return h+'</div>';
 }
 function viewTemplates(){
@@ -1204,9 +1216,9 @@ function chartPts(exId){
 }
 function ivlHist(exId){
   const out=[];for(const m of S.mesos)for(const s of Object.values(m.sessions)){const x=s.exs.find(e=>e.exId===exId&&e.ivl);if(!x||!x.sets.some(t=>t.done))continue;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,wk:s.wk,sets:x.sets})}
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,sets:x.sets})}
   out.sort((a,b)=>b.k-a.k);
-  sheet('<h2>'+esc(ex(exId).name)+'</h2>'+(out.length?'<div class="hist">'+out.slice(0,8).map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+' · week '+r.wk+'</small><div class="num">'+r.sets.map(t=>t.done?t.r:'–').join(' · ')+' = '+r.sets.reduce((a,t)=>a+(t.done?t.r:0),0)+' reps</div></div>').join('')+'</div>':'<div class="empty">No rounds logged yet.</div>'));
+  sheet('<h2>'+esc(ex(exId).name)+'</h2>'+(out.length?'<div class="hist">'+out.slice(0,8).map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+'</small><div class="num">'+r.sets.map(t=>t.done?t.r:'–').join(' · ')+' = '+r.sets.reduce((a,t)=>a+(t.done?t.r:0),0)+' reps</div></div>').join('')+'</div>':'<div class="empty">No rounds logged yet.</div>'));
 }
 function viewProgress(){
   const m=meso(),used=S.exercises.filter(e=>exHistory(e.id).length);
@@ -1219,7 +1231,7 @@ function viewProgress(){
     h+=lineChart(chartPts(ui.cx))+'<p>Estimated one-rep max from your best set each session, in '+unit()+'.</p>';
   }
   h+='</div>';
-  if(m){
+  if(m&&!m.quick){
     h+='<div class="sec">Hard sets per week · '+esc(m.name)+'</div>';
     MUSCLES.forEach(mu=>{
       const wk=Array.from({length:m.weeks},(_,i)=>{let n=0;for(const s of Object.values(m.sessions))if(s.wk===i+1)for(const x of s.exs)if(muscleOf(x)===mu.id)n+=x.sets.filter(t=>t.done).length;return n});
@@ -1232,6 +1244,11 @@ function viewProgress(){
 }
 
 /* ---------- session actions ---------- */
+// Where to land when a quick workout closes: the plan it was opened from, else the newest plan.
+function fallbackMeso(ret){const p=plans();return (ret&&p.find(m=>m.id===ret)||p[p.length-1]||{}).id||null}
+// Quick workouts with nothing logged are dropped when you move on to something else.
+function pruneQuick(keep){for(const m of S.mesos.filter(m=>m.quick&&m.id!==keep&&!Object.values(m.sessions).some(s=>sessCounts(s).d))){S.mesos=S.mesos.filter(z=>z!==m);mark('del:'+m.id)}}
+function leaveQuick(m){S.activeMeso=fallbackMeso(m.ret);mark('core');ui.tmp=null;gotoPending();ui.tab=S.activeMeso?'workout':'mesos';render();window.scrollTo(0,0)}
 function ctx(el){const se=el.closest('[data-ei]');return {ei:se?+se.dataset.ei:null,si:el.closest('[data-si]')?+el.closest('[data-si]').dataset.si:null}}
 function muscleHasDone(s,mu){return s.exs.some(x=>muscleOf(x)===mu&&x.sets.some(t=>t.done))}
 function toggleSet(ei,si){
@@ -1251,14 +1268,14 @@ function toggleSet(ei,si){
   }else{t.done=false;commit(s);render()}
 }
 function maybeSoreness(s,mu,dv){
-  const m=meso(),fb=s.fb[mu]=s.fb[mu]||{};
-  if(s.wk!==m.weeks&&fb.sor==null&&!fb.skip&&prevMuscle(m,mu,ord(s))){
+  const m=meso(),fb=s.fb[mu]=s.fb[mu]||{};if(m.quick)return;
+  if(!isDl(m,s.wk)&&fb.sor==null&&!fb.skip&&prevMuscle(m,mu,ord(s))){
     if(dv!=null){fb.sor=dv;fb.auto=true;applyMuscle(m,s,mu);commit(s);render();toast(MUS[mu].name+' soreness from your check-ins: '+SORE_LBL[dv]);maybePost(s,mu);return}
     ui.fb={kind:'sor',mu,sor:null};
     sheet('<h2>Feedback</h2><div class="q"><b>'+esc(MUS[mu].name)+' soreness</b><span>How sore did your '+esc(MUS[mu].name.toLowerCase())+' get after your last session?</span><div class="opts">'+['Never got sore','Recovered early','Recovered just in time','Still sore'].map((t,i)=>'<button class="opt" data-act="fbsor" data-v="'+i+'">'+t+'</button>').join('')+'</div></div><div class="foot"><button class="btn" data-act="fbskip">Skip</button><button class="btn pri" id="fbsave" data-act="fbsavesor" disabled>Save</button></div>');
   }else maybePost(s,mu);
 }
-function maybePost(s,mu){
+function maybePost(s,mu){if(meso().quick)return;
   const fb=s.fb[mu]=s.fb[mu]||{};
   const xs=s.exs.filter(x=>muscleOf(x)===mu);
   if(fb.post||!xs.length||!xs.every(x=>x.sets.length&&x.sets.every(t=>t.done)))return;
@@ -1410,7 +1427,7 @@ noteopen(el){const s=curSession(),ei=ctx(el).ei,x=s.exs[ei],e=ex(x.exId);ui.ei=e
   sheet('<h2>Notes</h2><p style="color:var(--muted);margin-top:0">'+esc(e.name)+'</p>'+(e.pin?'<div class="nbox"><small>Pinned</small><p>'+esc(e.pin)+'</p></div>':'')+(x.note?'<div class="nbox"><small>Today</small><p>'+esc(x.note)+'</p></div>':'')+'<div class="foot"><button class="btn" data-act="xnote">Edit</button><button class="btn pri" data-act="close">Got it</button></div>');
   if(!x.noteSeen){x.noteSeen=true;commit(s);setTimeout(render,0)}},
 xorder(){const s=curSession();
-  sheet('<h2>Reorder</h2><p style="color:var(--muted);margin-top:0">Drag the handles to put exercises in order.</p><div id="ordlist">'+s.exs.map((x,i)=>'<div class="ordr" data-i="'+i+'"><span class="grip" data-drag aria-label="Drag to move">'+I.grip+'</span><span class="onm">'+esc(ex(x.exId).name)+'<small>'+esc(MUS[ex(x.exId).muscle].name)+'</small></span></div>').join('')+'</div><div class="foot"><button class="btn" data-act="ordgo" data-v="day">Just today</button><button class="btn pri" data-act="ordgo" data-v="rest">Rest of mesocycle</button></div>')},
+  sheet('<h2>Reorder</h2><p style="color:var(--muted);margin-top:0">Drag the handles to put exercises in order.</p><div id="ordlist">'+s.exs.map((x,i)=>'<div class="ordr" data-i="'+i+'"><span class="grip" data-drag aria-label="Drag to move">'+I.grip+'</span><span class="onm">'+esc(ex(x.exId).name)+'<small>'+esc(MUS[ex(x.exId).muscle].name)+'</small></span></div>').join('')+'</div><div class="foot">'+(meso().quick?'<button class="btn pri" data-act="ordgo" data-v="day">Done</button>':'<button class="btn" data-act="ordgo" data-v="day">Just today</button><button class="btn pri" data-act="ordgo" data-v="rest">Rest of mesocycle</button>')+'</div>')},
 ordgo(el){const s=curSession(),m=meso(),ord=[...document.querySelectorAll('#ordlist .ordr')].map(r=>+r.dataset.i);
   if(ord.some((v,i)=>v!==i)){s.exs=ord.map(i=>s.exs[i]);
     if(el.dataset.v==='rest'){if(m.blank)syncDay(m,s);else m.days[s.di].items=reorderItems(m.days[s.di].items,s.exs.map(x=>x.exId));dropUntouched(m,s.di,s.wk)}
@@ -1435,21 +1452,25 @@ stype(el){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si],v=el.dataset.v;del
 sdup(){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si];x.sets.splice(ui.si+1,0,withType({w:t.w,r:t.r,pw:t.pw,pr:t.pr,done:false},t.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 srm(){const s=curSession(),x=s.exs[ui.ei];x.sets.splice(ui.si,1);x.planned=x.sets.length;if(!x.sets.length)s.exs.splice(ui.ei,1);commit(s);closeSheet();render()},
 exhist(el){const x=curSession().exs[ctx(el).ei];if(x.ivl){ivlHist(x.exId);return}const h=exHistory(x.exId).reverse().slice(0,8);
-  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+' · week '+r.wk+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
+  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
 exchart(el){const x=curSession().exs[ctx(el).ei];ui.chart=null;const c=lineChart(chartPts(x.exId));sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+c+'<p style="color:var(--muted);font-size:14px">Estimated one-rep max from your best set each session, in '+unit()+'. Touch the line for details.</p>');bindChart()},
 /* session */
 cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" style="--n:'+n+'">';
   for(let wk=1;wk<=m.weeks;wk++){h+='<div class="wk"><b>Wk '+wk+(wk===m.weeks?' D':'')+'</b>';for(let di=0;di<n;di++){const s=m.sessions[wk+'-'+di],c=s?sessCounts(s):{d:0,t:1};const cl=(s&&s.done)?'full':(c.d?'part':'');h+='<button class="d '+cl+(wk===ui.wk&&di===ui.di?' now':'')+'" data-act="goto" data-wk="'+wk+'" data-di="'+di+'">'+(di+1)+'</button>'}h+='</div>'}
   sheet(h+'</div><p style="color:var(--muted);font-size:14px;margin-top:12px">Filled green is finished. The last week is the deload.</p>')},
 goto(el){ui.wk=+el.dataset.wk;ui.di=+el.dataset.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0)},
-sessmenu(){sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button><button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
-finish(){const s=curSession(),m=meso();s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast('Workout saved')},
+sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(curSession().done?'':'<button class="li" data-act="finish">'+I.check+'Finish workout</button>')+'<button class="li" data-act="daynote">'+I.note+'Workout note</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="delmeso" data-id="'+meso().id+'">'+I.trash+'Discard workout</button></div>');return}
+  sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button><button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
+finish(){const s=curSession(),m=meso();
+  if(m.quick){if(!sessCounts(s).d){ACT.dodelmeso({dataset:{id:m.id}});toast('Nothing logged, so nothing saved');return}
+    s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');return}
+  s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast('Workout saved')},
 resetday(){confirmSheet('Reset this day?','Logged sets and feedback for this day are cleared and the plan is rebuilt.','doreset')},
 doreset(){const m=meso();delete m.sessions[ui.wk+'-'+ui.di];ui.tmp=null;mark('meso:'+m.id);closeSheet();render()},
 addex(){openPicker({kind:'add'},'Add exercise')},
 pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3))}
-  else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];
+  else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];if(m.quick){ACT.replgo({dataset:{v:'day'}});return}
     sheet('<h2>Replace</h2><p>'+esc(ex(old.exId).name)+' → <b>'+esc(ex(id).name)+'</b></p><p style="color:var(--muted)">Swap it for this workout only, or in this day for the rest of the mesocycle?</p><div class="foot"><button class="btn" data-act="replgo" data-v="day">Just today</button><button class="btn pri" data-act="replgo" data-v="rest">Rest of mesocycle</button></div>');return}
   else if(p.kind==='tpl'){const t=S.templates.find(z=>z.id===ui.tpl);t.days[p.di].items.push({exId:id,sets:3});mark('core')}
   if(p.kind!=='tpl'){syncDay(m,s);commit(s)}closeSheet();render()},
@@ -1461,12 +1482,14 @@ mesocreate(){const tid=$('#f_mt').value,t=S.templates.find(z=>z.id===tid);
   const days=t?clone(t.days).sort((a,b)=>a.weekday-b.weekday):blankDays(+$('#f_md').value);
   const m={id:rid(),name:$('#f_mn').value.trim()||(t?t.name:'New block'),weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days,sessions:{},created:Date.now(),template:t?t.name:'Blank',style:$('#f_mr').value==='test'?'test':'std'};
   if(!t)m.blank=true;
-  const pm=S.mesos[S.mesos.length-1];if(pm&&pm.prio&&Object.keys(pm.prio).length)m.prio=clone(pm.prio);
-  S.mesos.push(m);S.activeMeso=m.id;mark('core','meso:'+m.id);gotoPending();ui.tab='workout';closeSheet();render();window.scrollTo(0,0)},
-activate(el){S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
-openmeso(el){S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
-delmeso(el){confirmSheet('Delete this mesocycle?','All its logged sets are removed for good.','dodelmeso',el.dataset.id)},
-dodelmeso(el){const id=el.dataset.id;S.mesos=S.mesos.filter(m=>m.id!==id);if(S.activeMeso===id)S.activeMeso=S.mesos.length?S.mesos[S.mesos.length-1].id:null;mark('core','del:'+id);ui.tmp=null;gotoPending();closeSheet();render()},
+  const pm=plans().pop();if(pm&&pm.prio&&Object.keys(pm.prio).length)m.prio=clone(pm.prio);
+  pruneQuick();S.mesos.push(m);S.activeMeso=m.id;mark('core','meso:'+m.id);gotoPending();ui.tab='workout';closeSheet();render();window.scrollTo(0,0)},
+quick(){const cur=meso(),m=quickMeso(cur&&!cur.quick?cur.id:cur&&cur.ret);pruneQuick();S.mesos.push(m);S.activeMeso=m.id;mark('core','meso:'+m.id);ui.wk=1;ui.di=0;ui.tmp=null;ui.tab='workout';render();window.scrollTo(0,0);openPicker({kind:'add'},'Add exercise')},
+quickclose(){const m=meso(),s=curSession();if(!sessCounts(s).d&&!s.done){ACT.dodelmeso({dataset:{id:m.id}});return}leaveQuick(m)},
+activate(el){pruneQuick(el.dataset.id);S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
+openmeso(el){const cur=meso(),to=S.mesos.find(m=>m.id===el.dataset.id);if(to&&to.quick&&cur&&!cur.quick)to.ret=cur.id;pruneQuick(el.dataset.id);S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
+delmeso(el){const q=(S.mesos.find(m=>m.id===el.dataset.id)||{}).quick;confirmSheet(q?'Delete this workout?':'Delete this mesocycle?',q?'Its logged sets are removed from your history for good.':'All its logged sets are removed for good.','dodelmeso',el.dataset.id)},
+dodelmeso(el){const id=el.dataset.id,gone=S.mesos.find(m=>m.id===id);S.mesos=S.mesos.filter(m=>m.id!==id);if(S.activeMeso===id)S.activeMeso=fallbackMeso(gone&&gone.ret);mark('core','del:'+id);ui.tmp=null;gotoPending();closeSheet();render()},
 /* templates */
 newtpl(){const t={id:rid(),name:'New template',days:[{name:'Day 1',weekday:0,items:[]}]};S.templates.push(t);mark('core');ui.tpl=t.id;render();window.scrollTo(0,0)},
 edittpl(el){ui.tpl=el.dataset.id;render();window.scrollTo(0,0)},
@@ -1583,7 +1606,7 @@ document.addEventListener('focusin',e=>{const el=e.target;if(el.matches&&el.matc
 })();
 function startApp(){
   ui.signin=false;
-  const m=meso();if(!m&&S.mesos.length)S.activeMeso=S.mesos[S.mesos.length-1].id;
+  const m=meso();if(!m&&S.mesos.length)S.activeMeso=fallbackMeso();
   gotoPending();render();renderStatus();
   if(S.prefs.needsSetup)openSetup();else promptSore();
 }
