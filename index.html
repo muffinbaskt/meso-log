@@ -1184,9 +1184,9 @@ function viewMore(){
 }
 // The bot check sits above the send button; it is usually invisible and only asks for a click when Cloudflare is unsure.
 // A token works once, so the widget resets after every send.
-function mountCaptcha(){ui.cap=null;const el=$('#ts');if(!el)return;
+function mountCaptcha(){ui.cap=null;ui.capWait=false;const el=$('#ts');if(!el)return;
   loadTurnstile().then(()=>{if(!el.isConnected)return;ui.capW=turnstile.render(el,{sitekey:TS_KEY,appearance:'interaction-only',theme:'auto',
-    callback:t=>{ui.cap=t},'expired-callback':()=>{ui.cap=null},'error-callback':()=>{ui.cap=null}})}).catch(()=>toast('Could not load the bot check. Check your connection.'))}
+    callback:t=>{ui.cap=t;const b=$('[data-act="sendlink"]');if(ui.capWait&&b){ui.capWait=false;ACT.sendlink(b)}},'expired-callback':()=>{ui.cap=null},'error-callback':()=>{ui.cap=null;if(ui.capWait){ui.capWait=false;const b=$('[data-act="sendlink"]');if(b){b.disabled=false;b.textContent='Email me a sign-in link'}}}})}).catch(()=>toast('Could not load the bot check. Check your connection.'))}
 function viewSignin(){
   let h='<div class="signin"><h1>Meso Log</h1>';
   if(ui.sent)return h+'<p>We sent a sign-in link to <b>'+esc(ui.sent)+'</b>. Open it on this device to finish signing in.</p><button class="btn" data-act="signback">Use a different email</button></div>';
@@ -1548,8 +1548,9 @@ exdel(el){const id=el.dataset.id;if(S.templates.some(t=>t.days.some(d=>d.items.s
   S.exercises=S.exercises.filter(e=>e.id!==id);mark('core');closeSheet();render()},
 /* more */
 async sendlink(el){const email=$('#f_email').value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast('Enter your email');return}
-  if(TS_KEY&&!ui.cap){toast('One moment, checking you are not a bot');return}
-  el.disabled=true;try{await sendMagicLink(email,ui.cap);ui.sent=email;render()}catch(e){el.disabled=false;toast(e.message||'Could not send the link')}
+  // Tapped before the bot check finished: wait for it, then send without a second tap.
+  if(TS_KEY&&!ui.cap){ui.capWait=true;el.disabled=true;el.textContent='Checking you are not a bot…';return}
+  el.disabled=true;try{await sendMagicLink(email,ui.cap);ui.sent=email;render()}catch(e){el.disabled=false;el.textContent='Email me a sign-in link';toast(e.message||'Could not send the link')}
   finally{if(TS_KEY&&window.turnstile&&ui.capW!=null&&$('#ts')){ui.cap=null;turnstile.reset(ui.capW)}}},
 signback(){ui.sent=null;render()},
 uselocal(){localStorage.setItem(LSMODE,'local');startApp()},
