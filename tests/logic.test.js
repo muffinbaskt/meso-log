@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote
 };`);
 
 let ok = 0, bad = 0;
@@ -377,6 +377,26 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
     { exId: 'leg-press', note: 'x', sets: [set(false)] }] };
   eq(T.noteDue(ss, 3), false, 'after a superset, the reminder waits for the whole superset'); ss.exs[2].sets[0].done = true;
   eq(T.noteDue(ss, 3), true, 'and appears once both are done'); }
+
+// ---- quick workouts ----
+{ T.S = T.seedState(); T.normalize();
+  const q = T.quickMeso('plan-1');
+  eq([q.quick, q.weeks, q.days.length, q.ret], [true, 1, 1, 'plan-1'], 'a quick workout is one week, one day, and remembers the plan it came from');
+  eq([T.rirFor(q, 1), T.isDl(q, 1), T.isDl({ weeks: 5 }, 5)], [2, false, true], 'no deload in a quick workout; it assumes 2 RIR');
+  q.created = 1000; T.S.mesos.push(q);
+  eq(T.makeEx(q, 1, 0, 'bench-press-wide-grip', 3).sets[0].w, null, 'first time ever: no weight to suggest');
+  q.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', date: '2026-10-01', done: true, fb: {}, exs: [{ exId: 'bench-press-wide-grip', side: false, bar: 0, sets: [{ w: 185, r: 8, done: true }, { w: 185, r: 7, done: true }] }] };
+  const q2 = T.quickMeso(); q2.created = 2000; T.S.mesos.push(q2);
+  const x = T.makeEx(q2, 1, 0, 'bench-press-wide-grip', 3);
+  eq([x.sets.length, x.sets[0].w, x.sets[0].r], [3, 185, 8], 'the next quick workout repeats the best set from last time');
+  const h = T.exHistory('bench-press-wide-grip');
+  eq([h.length, h[0].quick, h[0].date], [1, true, '2026-10-01'], 'quick workout sets show in the exercise history');
+  const m = { id: 'm', name: 'Block', weeks: 5, days: UL, sessions: {}, created: 3000, style: 'std' }; T.S.mesos.push(m);
+  eq(T.makeEx(m, 1, 0, 'bench-press-wide-grip', 3).sets[0].w, 185, 'a mesocycle started later picks up the weight from a quick workout');
+  const mOld = { id: 'o', name: 'Old', weeks: 5, days: UL, sessions: {}, created: 500, style: 'std' }; T.S.mesos.push(mOld);
+  eq(T.makeEx(mOld, 2, 0, 'bench-press-wide-grip', 3).sets[0].w, null, 'a quick workout done during a running mesocycle does not change its plan');
+  const s = { wk: 1, di: 0, fb: { chest: { sor: 0 } }, exs: [{ exId: 'bench-press-wide-grip', base: 3, planned: 3, sets: [{ done: true }, { done: false }, { done: false }] }] };
+  T.applyMuscle(q2, s, 'chest'); eq(s.exs[0].sets.length, 3, 'feedback never changes sets in a quick workout'); }
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
