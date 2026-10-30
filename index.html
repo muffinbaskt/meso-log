@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#121417">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://zatngvydcqwlilmhafxj.supabase.co wss://zatngvydcqwlilmhafxj.supabase.co; img-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://zatngvydcqwlilmhafxj.supabase.co wss://zatngvydcqwlilmhafxj.supabase.co; img-src 'self' data: blob:; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Meso Log</title>
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <link rel="icon" href="icons/favicon-32-v2.png" type="image/png" sizes="32x32">
@@ -250,6 +250,7 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .bars i.z{background:var(--line)}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;max-width:86%;text-align:center}
 .toast[hidden]{display:none}
+.ts:empty{display:none}.ts{margin:4px 0 12px;min-height:0}
 .signin{max-width:420px;margin:0 auto;padding:72px 20px 40px}
 .signin h1{font-size:40px;text-transform:uppercase;line-height:1;margin:0}
 .signin>p{color:var(--muted);margin:8px 0 26px}
@@ -990,7 +991,12 @@ async function initStorage(){
   return 'app';
 }
 const authRedirect=()=>location.origin+location.pathname;
-async function sendMagicLink(email){ok(await sb.auth.signInWithOtp({email,options:{emailRedirectTo:authRedirect()}}))}
+// Cloudflare Turnstile site key (public). Empty = no CAPTCHA. Must be set before Supabase's CAPTCHA setting is turned on,
+// or every sign-in is refused. The secret key goes only in Supabase (Authentication > Attack Protection).
+const TS_KEY='';
+let tsReady=null;
+function loadTurnstile(){if(!tsReady)tsReady=new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';sc.async=true;sc.onload=res;sc.onerror=rej;document.head.appendChild(sc)});return tsReady}
+async function sendMagicLink(email,captchaToken){ok(await sb.auth.signInWithOtp({email,options:{emailRedirectTo:authRedirect(),...(captchaToken?{captchaToken}:{})}}))}
 function clearLocal(){[LSKEY,LSOWNER,LSMODE].forEach(k=>localStorage.removeItem(k))}
 async function signOut(){await flush();await sb.auth.signOut();clearLocal();location.reload()}
 async function deleteAccount(){ok(await sb.rpc('delete_my_account'));await sb.auth.signOut();clearLocal();location.reload()}
@@ -1063,7 +1069,7 @@ function gotoPending(){const m=meso();if(!m)return;const p=nextPending(m);ui.wk=
 
 /* ---------- views ---------- */
 function render(){
-  if(ui.signin){$('#app').innerHTML=viewSignin();return}
+  if(ui.signin){$('#app').innerHTML=viewSignin();mountCaptcha();return}
   const y=window.scrollY;
   const v={workout:viewWorkout,mesos:viewMesos,templates:viewTemplates,exercises:viewExercises,more:viewMore}[ui.tab]();
   $('#app').innerHTML='<div class="wrap">'+v+'</div>'+tabbar();
@@ -1176,11 +1182,17 @@ function viewMore(){
   h+='<div class="sec">Danger zone</div><button class="li" data-act="resetall" style="color:var(--bad)"><b>Erase all data</b></button></div>';
   return h;
 }
+// The bot check sits above the send button; it is usually invisible and only asks for a click when Cloudflare is unsure.
+// A token works once, so the widget resets after every send.
+function mountCaptcha(){ui.cap=null;const el=$('#ts');if(!el)return;
+  loadTurnstile().then(()=>{if(!el.isConnected)return;ui.capW=turnstile.render(el,{sitekey:TS_KEY,appearance:'interaction-only',theme:'auto',
+    callback:t=>{ui.cap=t},'expired-callback':()=>{ui.cap=null},'error-callback':()=>{ui.cap=null}})}).catch(()=>toast('Could not load the bot check. Check your connection.'))}
 function viewSignin(){
   let h='<div class="signin"><h1>Meso Log</h1>';
   if(ui.sent)return h+'<p>We sent a sign-in link to <b>'+esc(ui.sent)+'</b>. Open it on this device to finish signing in.</p><button class="btn" data-act="signback">Use a different email</button></div>';
   h+='<p>Sign in to keep your training log in sync across devices.</p>';
   h+='<div class="field"><label for="f_email">Email</label><input id="f_email" class="in" type="email" autocomplete="email" inputmode="email" enterkeyhint="send" placeholder="you@example.com"></div>';
+  if(TS_KEY)h+='<div id="ts" class="ts"></div>';
   h+='<button class="btn pri" data-act="sendlink">Email me a sign-in link</button>';
   h+='<button class="quiet" data-act="uselocal">Use without an account</button>';
   return h+'</div>';
@@ -1536,7 +1548,9 @@ exdel(el){const id=el.dataset.id;if(S.templates.some(t=>t.days.some(d=>d.items.s
   S.exercises=S.exercises.filter(e=>e.id!==id);mark('core');closeSheet();render()},
 /* more */
 async sendlink(el){const email=$('#f_email').value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){toast('Enter your email');return}
-  el.disabled=true;try{await sendMagicLink(email);ui.sent=email;render()}catch(e){el.disabled=false;toast(e.message||'Could not send the link')}},
+  if(TS_KEY&&!ui.cap){toast('One moment, checking you are not a bot');return}
+  el.disabled=true;try{await sendMagicLink(email,ui.cap);ui.sent=email;render()}catch(e){el.disabled=false;toast(e.message||'Could not send the link')}
+  finally{if(TS_KEY&&window.turnstile&&ui.capW!=null&&$('#ts')){ui.cap=null;turnstile.reset(ui.capW)}}},
 signback(){ui.sent=null;render()},
 uselocal(){localStorage.setItem(LSMODE,'local');startApp()},
 signinopen(){localStorage.removeItem(LSMODE);ui.signin=true;ui.sent=null;render();window.scrollTo(0,0)},
