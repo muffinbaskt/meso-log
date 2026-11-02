@@ -1,0 +1,10 @@
+# GitHub Pages builds with Jekyll. Only the app itself should be served, not the project files.
+exclude:
+  - CLAUDE.md
+  - README.md
+  - package.json
+  - package-lock.json
+  - node_modules
+  - supabase
+  - tests
+  - docs

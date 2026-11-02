@@ -83,6 +83,7 @@ A mesocycle copies its template's days when it starts, so later template edits n
   - Row level security was checked from outside: without signing in, reads, writes and `delete_my_account` are all refused.
   - Size limits on rows are in `supabase/schema.sql`.
   - Sign-in CAPTCHA: Cloudflare Turnstile, off while `TS_KEY` (script block 2) is empty. With a key, `mountCaptcha` renders an invisible-unless-needed widget on the sign-in screen and `sendMagicLink` passes `captchaToken`. Order matters: deploy the site key first, then turn on CAPTCHA in Supabase (Authentication > Attack Protection, Turnstile secret key), or sign-ins fail. Tested with Cloudflare's always-pass test key `1x00000000000000000000AA`.
+- `_config.yml` keeps project files (`CLAUDE.md`, `README.md`, `package.json`, `supabase/`, `tests/`, `docs/`) off the live site. They are still readable in the public GitHub repo. Any new non-app file or folder needs adding to its `exclude` list.
 - `docs/reference/*.png` are gitignored on purpose: RP screenshots must never be published.
 
 ## Storage
