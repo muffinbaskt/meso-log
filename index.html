@@ -215,6 +215,7 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
 .panel{position:relative;width:100%;max-width:560px;max-height:88%;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow);
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
+.panel.tall{height:88%}   /* searchable lists keep full height so a short result list stays above the phone keyboard */
 .panel h2{font-size:32px;line-height:1;margin-bottom:4px;padding-right:44px}
 .panel>.x{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;background:var(--surface2);color:var(--muted);display:grid;place-items:center}
 .panel>.x svg{width:18px;height:18px}
@@ -1049,7 +1050,7 @@ const I={
  t_more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="16" cy="12" r="1" fill="currentColor"/></svg>'
 };
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
-function sheet(html){$('#sheet').innerHTML='<div class="scrim" data-act="close"></div><div class="panel" role="dialog" aria-modal="true"><button class="x" data-act="close" aria-label="Close">'+I.x+'</button>'+html+'</div>';$('#sheet').hidden=false}
+function sheet(html,cls){$('#sheet').innerHTML='<div class="scrim" data-act="close"></div><div class="panel'+(cls?' '+cls:'')+'" role="dialog" aria-modal="true"><button class="x" data-act="close" aria-label="Close">'+I.x+'</button>'+html+'</div>';$('#sheet').hidden=false}
 function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML='';if(ui.pq&&ui.pq.length)setTimeout(pqNext,0)}
 // Runs queued actions one at a time, pausing while a sheet (feedback question) is open.
 function pqNext(){while(ui.pq&&ui.pq.length&&$('#sheet').hidden)ui.pq.shift()()}
@@ -1371,7 +1372,7 @@ function pickerList(q){
 }
 function openPicker(pick,title){
   ui.pick=pick;
-  sheet('<h2>'+esc(title)+'</h2><input class="in" data-inp="pickq" placeholder="Search" aria-label="Search exercises" style="margin-top:10px"><div id="pklist">'+pickerList('')+'</div>');
+  sheet('<h2>'+esc(title)+'</h2><input class="in" data-inp="pickq" placeholder="Search" aria-label="Search exercises" style="margin-top:10px"><div id="pklist">'+pickerList('')+'</div>','tall');
 }
 
 /* forms */
