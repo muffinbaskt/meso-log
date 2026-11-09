@@ -113,6 +113,8 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .set .ib{width:30px;height:38px;border-radius:8px;color:var(--dim)}
 .set .ib svg{width:20px;height:20px}
 .set input{width:100%;height:46px;border-radius:8px;border:1px solid transparent;background:var(--input);text-align:center;font-family:var(--font-display);font-weight:600;font-size:24px;font-variant-numeric:tabular-nums;color:var(--fg);padding:0 4px}
+.set .wlock{width:100%;height:46px;border-radius:8px;border:1px dashed var(--line);background:transparent;font-family:var(--font-display);font-weight:600;font-size:24px;font-variant-numeric:tabular-nums;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:4px}
+.set .wlock small{font-size:11px;letter-spacing:.06em;color:var(--dim)}
 .set input::placeholder{color:var(--dim)}
 .set input.dim{color:var(--dim)}
 .set input:focus{border-color:var(--accent);outline:none}
@@ -882,7 +884,9 @@ const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
 // A new bodyweight keeps each unlogged set's total load: bodyweight-only sets take the new weight, added weight shrinks
 // when you are heavier, assistance grows. Added weight and assistance round to the exercise's step and never go below 0.
 function setBodyweight(s,v){
-  for(const x of s.exs){if(x.abw==null)continue;const d=v-x.abw,inc=(ex(x.exId)||{}).inc||5;x.abw=v;if(!d)continue;
+  for(const x of s.exs){if(x.abw==null)continue;const d=v-x.abw,inc=(ex(x.exId)||{}).inc||5;x.abw=v;
+    if(x.bwo){for(const t of x.sets)if(!t.done){t.w=v;t.pw=v}continue}   // bodyweight-only weight is locked to bodyweight
+    if(!d)continue;
     const adj=w=>w==null?w:Math.max(0,roundTo(x.plus?w-d:w+d,inc));
     for(const t of x.sets){if(t.done)continue;
       if(x.bwo){t.w=v;t.pw=v}else if(x.plus||x.assist){t.w=adj(t.w);t.pw=adj(t.pw)}}}
@@ -1126,7 +1130,8 @@ function viewWorkout(){
     if(x.swap)o+='<div class="flag">Severe joint pain last time. Consider replacing this exercise.</div>';
     return o};
   const row=(x,ei,t,si,tag)=>'<div class="set'+(t.done?' done':'')+'" data-ei="'+ei+'" data-si="'+si+'">'+(tag?'<button class="ib stl" data-act="setmenu" aria-label="'+tag+' set menu">'+tag+'</button>':t.ty?'<button class="ib stl" data-act="setmenu" aria-label="'+SET_TY[t.ty].name+' set. Set menu">'+SET_TY[t.ty].short+'</button>':'<button class="ib" data-act="setmenu" aria-label="Set menu">'+I.kebab+'</button>')
-       +'<input inputmode="decimal" enterkeyhint="done" data-chg="setw" value="'+fmt(t.w)+'" placeholder="–" aria-label="Weight">'
+       +(x.bwo?'<button class="wlock" data-act="bwday" aria-label="Bodyweight '+fmt(t.w)+'. Tap to change your bodyweight">'+(t.w>0?fmt(t.w):'–')+'<small>BW</small></button>'   // locked: only the bodyweight box changes it
+         :'<input inputmode="decimal" enterkeyhint="done" data-chg="setw" value="'+fmt(t.w)+'" placeholder="–" aria-label="Weight">')
        +'<input inputmode="numeric" enterkeyhint="done" data-chg="setr" class="'+(!t.done&&t.r===t.pr?'dim':'')+'" value="'+fmt(t.r)+'" placeholder="–" aria-label="Reps">'
        +((v=>v?'<button class="ib chartb '+v+'" data-act="exchart" aria-label="'+(v==='up'?'Beat':'Below')+' the plan. Progress chart">'+(v==='up'?I.chart:I.chartDown)+'</button>':'<span></span>')(vsPlan(x,t,ui.wk)))
        +'<button class="logb" data-act="log" aria-label="Log set">'+I.check+'</button></div>';
@@ -1313,6 +1318,7 @@ function muscleHasDone(s,mu){return s.exs.some(x=>muscleOf(x)===mu&&x.sets.some(
 function toggleSet(ei,si){
   const s=curSession(),x=s.exs[ei],t=x.sets[si],mu=muscleOf(x);
   if(!t.done){
+    if(x.bwo&&!(t.w>0)){toast('Enter your bodyweight first');bwSheet(false);return}
     if(!x.ivl&&!(t.w>0||((x.plus||x.assist)&&t.w===0))){toast('Enter a weight first');return}
     if(!(t.r>0)){toast('Enter the reps');return}
     const first=!muscleHasDone(s,mu);

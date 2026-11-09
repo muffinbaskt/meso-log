@@ -434,5 +434,8 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
 { T.S = T.seedState(); T.normalize();
   T.S.mesos.push({ id: 'fm2', name: 'F', created: 1, start: '2026-01-01', weeks: 2, sessions: { '1-0': { wk: 1, di: 0, key: '1-0', exs: [{ exId: 'back-squat', form: 2, sets: [{ done: true, w: 100, r: 5 }] }] } } });
   eq(T.exHistory('back-squat').map(r => r.form), [2], 'history carries the form rating'); }
+{ const s = { exs: [{ exId: 'push-up', bwo: true, abw: 180, sets: [{ w: 180, pw: 180, r: 10, done: true }, { w: 175, pw: 180, r: 10 }] }] };
+  T.setBodyweight(s, 180); eq(s.exs[0].sets.map(t => t.w), [180, 180], 'bodyweight-only unlogged sets snap to bodyweight even when it is unchanged');
+  T.setBodyweight(s, 185); eq(s.exs[0].sets.map(t => t.w), [180, 185], 'logged sets keep the weight they were done at'); }
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
