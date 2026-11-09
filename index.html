@@ -869,6 +869,10 @@ function dropUntouched(m,di,wk){for(const k of Object.keys(m.sessions)){const s=
 /* Notes: x.note is for this workout only, e.pin is pinned to the exercise and shows wherever it appears.
    A note is due (asks to be read) once every exercise in the group before it is finished; the first group's notes are due
    from the start. Opening the note sets x.noteSeen. */
+/* Form rating per exercise in a workout, asked once all its sets are done. x.form: 0 poor, 1 acceptable, 2 good, 3 not rated
+   ("Don't care"). Recorded and shown in history only; it does not change weights or sets. */
+const FORM_LBL=['Poor','Acceptable','Good','Don’t care'];
+const formTag=f=>f==null||f===3?'':' · form: '+FORM_LBL[f].toLowerCase();
 const hasNote=x=>{const e=ex(x.exId)||{};return !!((e.pin&&e.pin.trim())||(x.note&&x.note.trim()))};
 function noteDue(s,ei){const x=s.exs[ei];if(!x||!hasNote(x)||x.noteSeen)return false;
   const gs=ssGroups(s.exs),gi=gs.findIndex(g=>g.includes(ei));
@@ -904,7 +908,7 @@ function exHistory(exId){
     const done=x.sets.filter(t=>t.done&&t.w>0&&t.r>0);if(!done.length)continue;
     const T=t=>totOf(x,t.w);
     let best=done[0];for(const t of done)if(e1rm(T(t),t.r)>e1rm(T(best),best.r))best=t;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,form:x.form,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
   }
   return out.sort((a,b)=>a.k-b.k);
 }
@@ -1271,9 +1275,9 @@ function chartPts(exId){
 }
 function ivlHist(exId){
   const out=[];for(const m of S.mesos)for(const s of Object.values(m.sessions)){const x=s.exs.find(e=>e.exId===exId&&e.ivl);if(!x||!x.sets.some(t=>t.done))continue;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,sets:x.sets})}
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,form:x.form,sets:x.sets})}
   out.sort((a,b)=>b.k-a.k);
-  sheet('<h2>'+esc(ex(exId).name)+'</h2>'+(out.length?'<div class="hist">'+out.slice(0,8).map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+'</small><div class="num">'+r.sets.map(t=>t.done?t.r:'–').join(' · ')+' = '+r.sets.reduce((a,t)=>a+(t.done?t.r:0),0)+' reps</div></div>').join('')+'</div>':'<div class="empty">No rounds logged yet.</div>'));
+  sheet('<h2>'+esc(ex(exId).name)+'</h2>'+(out.length?'<div class="hist">'+out.slice(0,8).map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>t.done?t.r:'–').join(' · ')+' = '+r.sets.reduce((a,t)=>a+(t.done?t.r:0),0)+' reps</div></div>').join('')+'</div>':'<div class="empty">No rounds logged yet.</div>'));
 }
 function viewProgress(){
   const m=meso(),used=S.exercises.filter(e=>exHistory(e.id).length);
@@ -1319,9 +1323,13 @@ function toggleSet(ei,si){
     if(first){trackWorked(mu);mark('core')}
     commit(s);render();
     const nd=s.exs.findIndex((_,i)=>!due0[i]&&noteDue(s,i));if(nd>=0)toast('Check the note on '+ex(s.exs[nd].exId).name+' before you start');
-    if(first)maybeSoreness(s,mu,dv);else maybePost(s,mu);
+    const after=()=>{if(first)maybeSoreness(s,mu,dv);else maybePost(s,mu)};
+    if(x.form==null&&x.sets.every(t=>t.done)){ui.pq=(ui.pq||[]).concat(after);askForm(ei)}else after();
   }else{t.done=false;commit(s);render()}
 }
+// Asked when the last set of an exercise is ticked. Muscle feedback waits in ui.pq until this closes, however it closes.
+function askForm(ei){const x=curSession().exs[ei];ui.formEi=ei;
+  sheet('<h2>Form check</h2><div class="q"><b>How was your form?</b><span>'+esc(ex(x.exId).name)+'</span><div class="opts">'+FORM_LBL.map((t,k)=>'<button class="opt'+(x.form===k?' on':'')+'" data-act="formset" data-v="'+k+'">'+t+'</button>').join('')+'</div></div>')}
 function maybeSoreness(s,mu,dv){
   const m=meso(),fb=s.fb[mu]=s.fb[mu]||{};if(m.quick)return;
   if(!isDl(m,s.wk)&&fb.sor==null&&!fb.skip&&prevMuscle(m,mu,ord(s))){
@@ -1484,7 +1492,7 @@ fbsavepost(){const s=curSession(),mu=ui.fb.mu,xs=s.exs.filter(x=>muscleOf(x)===m
 /* exercise menu */
 exmenu(el){const c=ctx(el);ui.ei=c.ei;const s=curSession(),x=s.exs[ui.ei],nx=s.exs[ui.ei+1],linked=x.ss&&nx;sheet('<h2>Exercise</h2><div class="menu">'
   +(linked||(nx&&!x.ivl&&!nx.ivl)?'<button class="li" data-act="xlink">'+I.link+'<div><b>'+(linked?'Unlink superset':'Superset with next exercise')+'</b><small>'+(linked?'Separate from ':'Alternate sets with ')+esc(ex(nx.exId).name)+'</small></div></button>':'')
-  +'<button class="li" data-act="xnote">'+I.note+'Notes</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
+  +'<button class="li" data-act="xnote">'+I.note+'Notes</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xform">'+I.check+'Form</button><button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
 xnote(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId);
   sheet('<h2>Notes</h2><p style="color:var(--muted);margin-top:0">'+esc(e.name)+'</p><div class="field"><label for="f_note">Today only</label><textarea id="f_note" class="in" placeholder="Just for this workout">'+esc(x.note||'')+'</textarea></div><div class="field"><label for="f_pin">Pinned to this exercise</label><textarea id="f_pin" class="in" placeholder="Shows every time '+esc(e.name)+' comes up">'+esc(e.pin||'')+'</textarea></div><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="xnotesave">Save</button></div>')},
 xnotesave(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId),n=$('#f_note').value.trim(),pn=$('#f_pin').value.trim();
@@ -1510,6 +1518,8 @@ replgo(el){const s=curSession(),m=meso(),r=ui.repl,old=s.exs[r.ei];
   commit(s);closeSheet();render()},
 xrep(){const s=curSession();openPicker({kind:'replace',ei:ui.ei,muscle:muscleOf(s.exs[ui.ei])},'Replace with')},
 xjoint(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Joint pain</h2><div class="q"><b>'+esc(ex(x.exId).name)+'</b><span>How do your joints feel on this exercise?</span><div class="opts">'+['None','Mild','Moderate','Severe'].map((t,k)=>'<button class="opt'+(x.joint===k?' on':'')+'" data-act="xjsave" data-v="'+k+'">'+t+'</button>').join('')+'</div></div><p style="color:var(--muted);margin-top:14px">Moderate or severe takes a set off this exercise next time. Severe also flags it for replacement.</p>')},
+formset(el){const s=curSession(),x=s.exs[ui.formEi];if(x){x.form=+el.dataset.v;commit(s)}closeSheet();render()},
+xform(){askForm(ui.ei)},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
 xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
@@ -1528,7 +1538,7 @@ stype(el){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si],v=el.dataset.v;del
 sdup(){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si];x.sets.splice(ui.si+1,0,withType({w:t.w,r:t.r,pw:t.pw,pr:t.pr,done:false},t.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 srm(){const s=curSession(),x=s.exs[ui.ei];x.sets.splice(ui.si,1);x.planned=x.sets.length;if(!x.sets.length)s.exs.splice(ui.ei,1);commit(s);closeSheet();render()},
 exhist(el){const x=curSession().exs[ctx(el).ei];if(x.ivl){ivlHist(x.exId);return}const h=exHistory(x.exId).reverse().slice(0,8);
-  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
+  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
 exchart(el){const x=curSession().exs[ctx(el).ei];ui.chart=null;const c=lineChart(chartPts(x.exId));sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+c+'<p style="color:var(--muted);font-size:14px">Estimated one-rep max from your best set each session, in '+unit()+'. Touch the line for details.</p>');bindChart()},
 /* session */
 cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" style="--n:'+n+'">';

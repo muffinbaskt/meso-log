@@ -431,5 +431,8 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq(T.removeItem(it, 2, 'a'), true, 'remove finds the slot'); eq(it, [{ exId: 'a', sets: 3 }, { exId: 'b', sets: 3 }], 'only that slot goes');
   T.removeItem(it, 5, 'b'); eq(it.map(i => i.exId), ['a'], 'falls back to matching the exercise');
   eq(T.removeItem(it, 0, 'z'), false, 'missing exercise changes nothing'); }
+{ T.S = T.seedState(); T.normalize();
+  T.S.mesos.push({ id: 'fm2', name: 'F', created: 1, start: '2026-01-01', weeks: 2, sessions: { '1-0': { wk: 1, di: 0, key: '1-0', exs: [{ exId: 'back-squat', form: 2, sets: [{ done: true, w: 100, r: 5 }] }] } } });
+  eq(T.exHistory('back-squat').map(r => r.form), [2], 'history carries the form rating'); }
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);

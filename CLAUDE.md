@@ -8,9 +8,10 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 
 - Built in a Claude chat as a published artifact (v2), then packaged here. `index.html` is now the source of truth.
 - Smoke tested at 390 px in light and dark with Playwright on 2026-10-29 (every tab and sheet, no console errors). Not yet used for real workouts: the owner is testing it over several weeks before inviting anyone.
-- Logic is covered by `tests/logic.test.js` (217 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
+- Logic is covered by `tests/logic.test.js` (218 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
 - Exercise picker has a Filter sheet (logged only, muscle, equipment, built-in vs mine). Choices within a part widen, parts narrow; logic is `filterEx` in block 1. Filters stay in `ui.pf` for the visit. The picker panel is `.panel.tall` (fixed height) so short results stay above the phone keyboard.
 - Adding or removing an exercise in a planned workout asks "Just today" or "Rest of mesocycle", like Replace (`addgo`, `rmgo`; `removeItem` in block 1). Rest updates `m.days[di].items` and rebuilds later unstarted sessions of that day (`dropUntouched`). Blank and quick mesos skip the question.
+- Form check: when the last set of an exercise is ticked and `x.form` is unset, `askForm` asks Poor / Acceptable / Good / Don’t care (0–3). Muscle feedback waits in `ui.pq` until it closes. Shown in exercise history (`formTag`), editable from the exercise menu (Form). Recorded only; does not affect weights or sets.
 - Run locally: `npm run dev`, then open http://localhost:5173 (or just open `index.html`).
 
 ## Layout of the code
