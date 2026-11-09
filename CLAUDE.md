@@ -12,6 +12,7 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 - Exercise picker has a Filter sheet (logged only, muscle, equipment, built-in vs mine). Choices within a part widen, parts narrow; logic is `filterEx` in block 1. Filters stay in `ui.pf` for the visit. The picker panel is `.panel.tall` (fixed height) so short results stay above the phone keyboard.
 - Adding or removing an exercise in a planned workout asks "Just today" or "Rest of mesocycle", like Replace (`addgo`, `rmgo`; `removeItem` in block 1). Rest updates `m.days[di].items` and rebuilds later unstarted sessions of that day (`dropUntouched`). Blank and quick mesos skip the question.
 - Form check: when the last set of an exercise is ticked and `x.form` is unset, `askForm` asks Poor / Acceptable / Good / Don’t care (0–3). Muscle feedback waits in `ui.pq` until it closes. Shown in exercise history (`formTag`), editable from the exercise menu (Form). Recorded only; does not affect weights or sets.
+- Bodyweight prompt (`maybeAskBw`) asks once per workout until a bodyweight set is logged, so adding a bodyweight exercise mid-workout asks too (queued after the Added question). It never overlaps the form check: form needs every set of an exercise done, bodyweight needs no bodyweight set done, and each waits for an open sheet.
 - Run locally: `npm run dev`, then open http://localhost:5173 (or just open `index.html`).
 
 ## Layout of the code

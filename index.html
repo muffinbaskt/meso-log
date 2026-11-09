@@ -1378,7 +1378,7 @@ function bwSheet(first){const s=curSession(),cur=(s&&s.exs.find(x=>x.abw!=null)|
   if(first)setTimeout(()=>{const i=$('#f_bwd');if(i)i.select()},0)}
 function maybeAskBw(){
   if(ui.tab!=='workout'||ui.signin||!$('#sheet').hidden)return;
-  const m=meso(),s=m&&curSession();if(!s||s.done||s.bwAsked||!usesBw(s)||s.exs.some(x=>x.sets.some(t=>t.done)))return;
+  const m=meso(),s=m&&curSession();if(!s||s.done||s.bwAsked||!usesBw(s)||s.exs.some(x=>x.abw!=null&&x.sets.some(t=>t.done)))return;   // asks until a bodyweight set is logged, so adding one mid-workout asks too
   const k=m.id+':'+s.key;ui.bwShown=ui.bwShown||{};if(ui.bwShown[k])return;ui.bwShown[k]=1;bwSheet(true);
 }
 function promptSore(){const d=today();if(ui.soreDay===d||!dueSoreness().length||!$('#sheet').hidden)return;ui.soreDay=d;openSoreCheck()}
@@ -1563,6 +1563,7 @@ pfapply(){ui.pf=ui.pfd;openPicker(ui.pick,ui.pickTitle,true)},
 pkclear(){ui.pf=blankFilter();openPicker(ui.pick,ui.pickTitle,true)},
 pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3));
+    ui.pq=(ui.pq||[]).concat(maybeAskBw);   // after the Added question closes, however it closes
     if(!m.blank){commit(s);ui.addId=id;render();   // planned day: ask whether it stays in later weeks, like Replace does
       sheet('<h2>Added</h2><p><b>'+esc(ex(id).name)+'</b> is in this workout.</p><p style="color:var(--muted)">Keep it in '+esc(m.days[s.di].name)+' for the rest of the mesocycle too?</p><div class="foot"><button class="btn" data-act="addgo" data-v="day">Just today</button><button class="btn pri" data-act="addgo" data-v="rest">Rest of mesocycle</button></div>');return}}
   else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];if(m.quick){ACT.replgo({dataset:{v:'day'}});return}
