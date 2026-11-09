@@ -215,7 +215,23 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55)}
 .panel{position:relative;width:100%;max-width:560px;max-height:88%;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow);
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
-.panel.tall{height:88%}   /* searchable lists keep full height so a short result list stays above the phone keyboard */
+.panel.tall{height:88%}
+.pkbar{display:flex;gap:8px;margin-top:10px}
+.pkbar .btn{height:46px;flex:none}
+.pkbar .btn.on{background:var(--accent-soft);color:var(--accent)}
+.fh{font-size:19px;font-weight:600;margin:20px 0 8px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fchip{display:flex;align-items:center;gap:8px;min-height:46px;padding:8px 12px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface2);text-align:left;font-weight:600;line-height:1.15}
+.fchip i{width:8px;height:8px;border-radius:50%;flex:none}
+.fchip::after{content:'';margin-left:auto;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line);flex:none}
+.fchip.on{border-color:var(--accent);background:var(--accent-soft)}
+.fchip.on::after{border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 3px var(--surface2)}
+.fsw{display:flex;align-items:center;gap:14px;width:100%;text-align:left;margin-top:14px}
+.fsw b{display:block;font-size:17px;font-weight:600}.fsw small{display:block;color:var(--muted);font-size:14px;margin-top:2px}
+.fsw>i{margin-left:auto;flex:none;width:46px;height:28px;border-radius:14px;background:var(--surface2);border:1px solid var(--line);position:relative;transition:background .15s}
+.fsw>i::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .15s}
+.fsw.on>i{background:var(--accent);border-color:var(--accent)}.fsw.on>i::after{transform:translateX(18px);background:var(--accent-ink)}
+.ffoot{position:sticky;bottom:calc(-18px - env(safe-area-inset-bottom,0px));background:var(--surface);margin:20px -18px calc(-18px - env(safe-area-inset-bottom,0px));padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}   /* searchable lists keep full height so a short result list stays above the phone keyboard */
 .panel h2{font-size:32px;line-height:1;margin-bottom:4px;padding-right:44px}
 .panel>.x{position:absolute;top:14px;right:14px;width:36px;height:36px;border-radius:50%;background:var(--surface2);color:var(--muted);display:grid;place-items:center}
 .panel>.x svg{width:18px;height:18px}
@@ -890,6 +906,16 @@ function exHistory(exId){
   }
   return out.sort((a,b)=>a.k-b.k);
 }
+/* Exercise ids with at least one finished set in any meso. */
+function loggedIds(){const o=new Set();for(const m of S.mesos)for(const x of Object.values(m.sessions))for(const e of x.exs)if(e.sets.some(t=>t.done))o.add(e.exId);return o}
+/* Exercise picker filter. f={done,mu:[],eq:[],src:[]}; an empty list puts no limit on that part. Choices inside a part
+   widen the match (Chest or Back), parts narrow each other (Chest and Dumbbell). known = listed equipment; anything else counts as 'other'. */
+function filterEx(list,f,known){
+  const lg=f.done?loggedIds():null,lib=f.src.length?new Set(LIB.map(r=>r[7]||idOf(r[0]))):null;
+  return list.filter(e=>(!lg||lg.has(e.id))&&(!f.mu.length||f.mu.includes(e.muscle))
+    &&(!f.eq.length||f.eq.includes(known.includes(e.equip)?e.equip:'other'))&&(!lib||f.src.includes(lib.has(e.id)?'lib':'mine')));
+}
+const blankFilter=()=>({done:false,mu:[],eq:[],src:[]});
 const muscleOf=x=>ex(x.exId)?.muscle;
 /* Backup files are checked before import: only these free-text fields (always escaped when shown) may hold markup
    characters. Ids and every other string go into HTML attributes or unescaped spots, so they must be plain.
@@ -1023,7 +1049,7 @@ const SET_TY={
  myo:{name:'Myorep',short:'M',desc:'Short mini-sets with 5 to 15 seconds of rest between them, aiming for the same target. Log the total reps.'},
  match:{name:'Myorep match',short:'MM',desc:'Mini-sets with short rests until you match the reps you got on set 1. Log the total reps.'}
 };
-const ui={signin:false,sent:null,tab:'workout',sub:null,tpl:null,wk:1,di:0,tmp:null,q:'',pick:null,fb:null,chart:null};
+const ui={pf:blankFilter(),pkq:'',signin:false,sent:null,tab:'workout',sub:null,tpl:null,wk:1,di:0,tmp:null,q:'',pick:null,fb:null,chart:null};
 const I={
  kebab:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h2M12 14h2M8 17h2M12 17h2" stroke-width="2.2"/></svg>',
@@ -1363,16 +1389,29 @@ function pickerList(q){
   const skip=ui.pick&&ui.pick.kind==='replace'?(curSession().exs[ui.pick.ei]||{}).exId:null;
   MUSCLES.forEach(mu=>{
     if(only&&mu.id!==only)return;
-    const l=S.exercises.filter(e=>e.muscle===mu.id&&e.id!==skip&&(!q||e.name.toLowerCase().includes(q)));
+    const l=filterEx(S.exercises.filter(e=>e.muscle===mu.id&&e.id!==skip&&(!q||e.name.toLowerCase().includes(q))),only?{...ui.pf,mu:[]}:ui.pf,EQUIP_IDS);
     if(!l.length)return;
     h+=(only?'':badge(mu.id));
     l.forEach(e=>h+='<button class="li" data-act="pickex" data-id="'+e.id+'"><div><b>'+esc(e.name)+'</b><small>'+esc(e.equip||'')+'</small></div></button>');
   });
-  return h||'<div class="empty">No matches.</div>';
+  return h||'<div class="empty">No matches.'+(pfCount()?'<br><button class="btn" data-act="pkclear" style="margin-top:12px">Clear filters</button>':'')+'</div>';
 }
-function openPicker(pick,title){
-  ui.pick=pick;
-  sheet('<h2>'+esc(title)+'</h2><input class="in" data-inp="pickq" placeholder="Search" aria-label="Search exercises" style="margin-top:10px"><div id="pklist">'+pickerList('')+'</div>','tall');
+const EQUIP_IDS=EQUIP.map(q=>q[0]);
+// Filters picked for the exercise picker. They stay for the rest of the visit so adding several exercises keeps them.
+function pfCount(f){f=f||ui.pf;return (f.done?1:0)+(ui.pick&&ui.pick.muscle?0:f.mu.length)+f.eq.length+f.src.length}
+function openPicker(pick,title,keep){
+  ui.pick=pick;ui.pickTitle=title;if(!keep)ui.pkq='';const n=pfCount();
+  sheet('<h2>'+esc(title)+'</h2><div class="pkbar"><input class="in" data-inp="pickq" placeholder="Search" aria-label="Search exercises" value="'+esc(ui.pkq)+'"><button class="btn'+(n?' on':'')+'" data-act="pkfilter">Filter'+(n?' ('+n+')':'')+'</button></div><div id="pklist">'+pickerList(ui.pkq)+'</div>','tall');
+}
+function pkFilterSheet(){
+  const f=ui.pfd,only=ui.pick&&ui.pick.muscle,others=S.exercises.some(e=>!EQUIP_IDS.includes(e.equip));
+  const chip=(g,v,label,hue)=>'<button class="fchip'+(f[g].includes(v)?' on':'')+'" data-act="pfchip" data-g="'+g+'" data-v="'+esc(v)+'" aria-pressed="'+f[g].includes(v)+'">'+(hue!=null?'<i style="background:hsl('+hue+' 70% 60%)"></i>':'')+esc(label)+'</button>';
+  sheet('<h2>Filter exercises</h2>'
+   +'<button class="fsw'+(f.done?' on':'')+'" data-act="pfdone" role="switch" aria-checked="'+f.done+'"><span><b>Only exercises I’ve logged</b><small>Shows just the ones you have finished at least one set of.</small></span><i></i></button>'
+   +(only?'':'<h3 class="fh">Muscle</h3><div class="fgrid">'+MUSCLES.map(m=>chip('mu',m.id,m.name,m.hue)).join('')+'</div>')
+   +'<h3 class="fh">Equipment</h3><div class="fgrid">'+EQUIP.map(q=>chip('eq',q[0],q[1])).join('')+(others?chip('eq','other','Other'):'')+'</div>'
+   +'<h3 class="fh">Made by</h3><div class="fgrid">'+chip('src','lib','Built-in')+chip('src','mine','Me')+'</div>'
+   +'<div class="foot ffoot"><button class="btn" data-act="pfclear" style="margin-right:auto">Clear</button><button class="btn" data-act="pfcancel">Cancel</button><button class="btn pri" data-act="pfapply">Apply</button></div>','tall');
 }
 
 /* forms */
@@ -1495,6 +1534,13 @@ finish(){const s=curSession(),m=meso();
 resetday(){confirmSheet('Reset this day?','Logged sets and feedback for this day are cleared and the plan is rebuilt.','doreset')},
 doreset(){const m=meso();delete m.sessions[ui.wk+'-'+ui.di];ui.tmp=null;mark('meso:'+m.id);closeSheet();render()},
 addex(){openPicker({kind:'add'},'Add exercise')},
+pkfilter(){ui.pfd=JSON.parse(JSON.stringify(ui.pf));pkFilterSheet()},
+pfchip(el){const a=ui.pfd[el.dataset.g],v=el.dataset.v,i=a.indexOf(v);if(i<0)a.push(v);else a.splice(i,1);el.classList.toggle('on',i<0);el.setAttribute('aria-pressed',i<0)},
+pfdone(el){const f=ui.pfd;f.done=!f.done;el.classList.toggle('on',f.done);el.setAttribute('aria-checked',f.done)},
+pfclear(){ui.pfd=blankFilter();document.querySelectorAll('#sheet .fchip.on,#sheet .fsw.on').forEach(b=>{b.classList.remove('on');b.setAttribute(b.classList.contains('fsw')?'aria-checked':'aria-pressed','false')})},
+pfcancel(){openPicker(ui.pick,ui.pickTitle,true)},
+pfapply(){ui.pf=ui.pfd;openPicker(ui.pick,ui.pickTitle,true)},
+pkclear(){ui.pf=blankFilter();openPicker(ui.pick,ui.pickTitle,true)},
 pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3))}
   else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];if(m.quick){ACT.replgo({dataset:{v:'day'}});return}
@@ -1615,7 +1661,7 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
   const el=e.target,k=el.dataset.inp;if(!k)return;
   if(k==='exq'){ui.q=el.value;$('#exlist').innerHTML=exList(ui.q.trim().toLowerCase())}
-  else if(k==='pickq'){$('#pklist').innerHTML=pickerList(el.value)}
+  else if(k==='pickq'){ui.pkq=el.value;$('#pklist').innerHTML=pickerList(el.value)}
   else return;
 });
 document.addEventListener('input',e=>{const el=e.target;if(el.dataset.chg==='setw'||el.dataset.chg==='setr')el.classList.remove('dim')});

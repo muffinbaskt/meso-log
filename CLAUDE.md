@@ -8,7 +8,8 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 
 - Built in a Claude chat as a published artifact (v2), then packaged here. `index.html` is now the source of truth.
 - Smoke tested at 390 px in light and dark with Playwright on 2026-10-29 (every tab and sheet, no console errors). Not yet used for real workouts: the owner is testing it over several weeks before inviting anyone.
-- Logic is covered by `tests/logic.test.js` (205 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
+- Logic is covered by `tests/logic.test.js` (213 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
+- Exercise picker has a Filter sheet (logged only, muscle, equipment, built-in vs mine). Choices within a part widen, parts narrow; logic is `filterEx` in block 1. Filters stay in `ui.pf` for the visit. The picker panel is `.panel.tall` (fixed height) so short results stay above the phone keyboard.
 - Run locally: `npm run dev`, then open http://localhost:5173 (or just open `index.html`).
 
 ## Layout of the code

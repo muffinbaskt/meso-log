@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter
 };`);
 
 let ok = 0, bad = 0;
@@ -408,6 +408,24 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq(T.unsafeBackup({ exercises: [{ id: 'x" onclick="alert(1)', name: 'Curl' }] }), 'backup.exercises.0.id', 'a quote in an id is refused');
   eq(T.unsafeBackup({ exercises: [{ id: 'x', lo: '<img src=x onerror=alert(1)>' }] }), 'backup.exercises.0.lo', 'markup in a number field is refused');
   eq(T.unsafeBackup({ mesos: [{ sessions: { '<x>': {} } }] }), 'backup.mesos.0.sessions.<x>', 'markup in a key is refused'); }
+
+// Exercise picker filter
+{
+  T.S = T.seedState(); T.normalize();
+  const K = ['Barbell', 'Dumbbell', 'Cable', 'Machine', 'Smith Machine', 'Freemotion', 'Bodyweight', 'Bodyweight + weight', 'Assisted machine'];
+  const all = T.S.exercises, F = o => Object.assign(T.blankFilter(), o);
+  eq(T.filterEx(all, F({}), K).length, all.length, 'no filter keeps everything');
+  eq(T.filterEx(all, F({ mu: ['chest', 'back'] }), K).every(e => e.muscle === 'chest' || e.muscle === 'back'), true, 'muscles widen within the part');
+  const cd = T.filterEx(all, F({ mu: ['chest'], eq: ['Dumbbell'] }), K);
+  eq(cd.length > 0 && cd.every(e => e.muscle === 'chest' && e.equip === 'Dumbbell'), true, 'parts narrow each other');
+  T.S.exercises.push({ id: 'my-thing', name: 'My Thing', muscle: 'chest', equip: 'Hammer Strength', lo: 8, hi: 12, inc: 5 });
+  eq(T.filterEx(T.S.exercises, F({ src: ['mine'] }), K).map(e => e.id), ['my-thing'], 'made by me = not in the library');
+  eq(T.filterEx(T.S.exercises, F({ eq: ['other'] }), K).map(e => e.id), ['my-thing'], 'unlisted equipment counts as other');
+  eq(T.filterEx(T.S.exercises, F({ src: ['lib'] }), K).length, all.length - 1, 'built-in excludes custom');
+  eq(T.filterEx(T.S.exercises, F({ done: true }), K).length, 0, 'nothing logged yet');
+  T.S.mesos.push({ id: 'fm', name: 'f', sessions: { a: { exs: [{ exId: 'my-thing', sets: [{ done: true, w: 10, r: 8 }] }, { exId: 'back-squat', sets: [{ done: false }] }] } } });
+  eq(T.filterEx(T.S.exercises, F({ done: true }), K).map(e => e.id), ['my-thing'], 'logged = has a finished set');
+}
 
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
