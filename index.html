@@ -863,6 +863,8 @@ function reorderItems(items,exIds){const left=items.slice(),out=[];
   for(const id of exIds){const k=left.findIndex(i=>i.exId===id);if(k>=0)out.push(left.splice(k,1)[0])}
   return out.concat(left)}
 function replaceItem(items,idx,oldId,newId){const it=items[idx]&&items[idx].exId===oldId?items[idx]:items.find(i=>i.exId===oldId);if(it)it.exId=newId;return !!it}
+// Removes one exercise from a day plan: the slot at idx if it holds that exercise, else the first slot that does.
+function removeItem(items,idx,exId){const k=items[idx]&&items[idx].exId===exId?idx:items.findIndex(i=>i.exId===exId);if(k>=0)items.splice(k,1);return k>=0}
 function dropUntouched(m,di,wk){for(const k of Object.keys(m.sessions)){const s=m.sessions[k];if(s.di===di&&s.wk>wk&&!s.exs.some(x=>x.sets.some(t=>t.done)))delete m.sessions[k]}}
 /* Notes: x.note is for this workout only, e.pin is pinned to the exercise and shows wherever it appears.
    A note is due (asks to be read) once every exercise in the group before it is finished; the first group's notes are due
@@ -1499,6 +1501,9 @@ ordgo(el){const s=curSession(),m=meso(),ord=[...document.querySelectorAll('#ordl
     if(el.dataset.v==='rest'){if(m.blank)syncDay(m,s);else m.days[s.di].items=reorderItems(m.days[s.di].items,s.exs.map(x=>x.exId));dropUntouched(m,s.di,s.wk)}
     commit(s)}
   closeSheet();render()},
+addgo(el){const m=meso(),s=curSession();
+  if(el.dataset.v==='rest'){m.days[s.di].items.push({exId:ui.addId,sets:3});dropUntouched(m,s.di,s.wk);commit(s);toast('Added to '+m.days[s.di].name+' for the rest of the mesocycle')}
+  closeSheet();render()},
 replgo(el){const s=curSession(),m=meso(),r=ui.repl,old=s.exs[r.ei];
   s.exs[r.ei]=Object.assign(makeEx(m,ui.wk,ui.di,r.id,old.planned),old.ss?{ss:true}:{});
   if(el.dataset.v==='rest'){if(m.blank)syncDay(m,s);else replaceItem(m.days[s.di].items,r.ei,old.exId,r.id);dropUntouched(m,s.di,s.wk)}
@@ -1508,7 +1513,12 @@ xjoint(){const s=curSession(),x=s.exs[ui.ei];sheet('<h2>Joint pain</h2><div clas
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
 xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
-xrm(){const s=curSession();s.exs.splice(ui.ei,1);syncDay(meso(),s);commit(s);closeSheet();render()},
+xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
+  if(!m.blank){ui.rmd={ei,id};   // planned day: ask whether it also leaves later weeks, like Replace does
+    sheet('<h2>Removed</h2><p><b>'+esc(ex(id).name)+'</b> is out of this workout.</p><p style="color:var(--muted)">Take it out of '+esc(m.days[s.di].name)+' for the rest of the mesocycle too?</p><div class="foot"><button class="btn" data-act="rmgo" data-v="day">Just today</button><button class="btn pri" data-act="rmgo" data-v="rest">Rest of mesocycle</button></div>')}},
+rmgo(el){const m=meso(),s=curSession(),r=ui.rmd;
+  if(el.dataset.v==='rest'&&removeItem(m.days[s.di].items,r.ei,r.id)){dropUntouched(m,s.di,s.wk);commit(s);toast('Removed from '+m.days[s.di].name+' for the rest of the mesocycle')}
+  closeSheet();render()},
 setmenu(el){const c=ctx(el);ui.ei=c.ei;ui.si=c.si;const ty=curSession().exs[c.ei].sets[c.si].ty;sheet('<h2>Set '+(c.si+1)+'</h2><div class="menu"><button class="li" data-act="stypes">'+I.swap+'<div><b>Set type</b><small>'+(ty?SET_TY[ty].name:'Regular')+'</small></div></button><button class="li" data-act="sdup">'+I.plus+'Duplicate set</button><button class="li bad" data-act="srm">'+I.trash+'Remove set</button></div>')},
 stypes(){const t=curSession().exs[ui.ei].sets[ui.si],cur=t.ty||'reg';
   sheet('<h2>Set type</h2><div class="menu">'+['reg','myo','match'].map(k=>'<button class="li'+(k===cur?' on':'')+'" data-act="stype" data-v="'+k+'"><div><b>'+SET_TY[k].name+(k===cur?' ✓':'')+'</b><small>'+SET_TY[k].desc+'</small></div></button>').join('')+'</div>')},
@@ -1542,7 +1552,9 @@ pfcancel(){openPicker(ui.pick,ui.pickTitle,true)},
 pfapply(){ui.pf=ui.pfd;openPicker(ui.pick,ui.pickTitle,true)},
 pkclear(){ui.pf=blankFilter();openPicker(ui.pick,ui.pickTitle,true)},
 pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
-  if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3))}
+  if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3));
+    if(!m.blank){commit(s);ui.addId=id;render();   // planned day: ask whether it stays in later weeks, like Replace does
+      sheet('<h2>Added</h2><p><b>'+esc(ex(id).name)+'</b> is in this workout.</p><p style="color:var(--muted)">Keep it in '+esc(m.days[s.di].name)+' for the rest of the mesocycle too?</p><div class="foot"><button class="btn" data-act="addgo" data-v="day">Just today</button><button class="btn pri" data-act="addgo" data-v="rest">Rest of mesocycle</button></div>');return}}
   else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];if(m.quick){ACT.replgo({dataset:{v:'day'}});return}
     sheet('<h2>Replace</h2><p>'+esc(ex(old.exId).name)+' → <b>'+esc(ex(id).name)+'</b></p><p style="color:var(--muted)">Swap it for this workout only, or in this day for the rest of the mesocycle?</p><div class="foot"><button class="btn" data-act="replgo" data-v="day">Just today</button><button class="btn pri" data-act="replgo" data-v="rest">Rest of mesocycle</button></div>');return}
   else if(p.kind==='tpl'){const t=S.templates.find(z=>z.id===ui.tpl);t.days[p.di].items.push({exId:id,sets:3});mark('core')}

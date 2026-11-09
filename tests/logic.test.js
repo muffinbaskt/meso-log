@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem
 };`);
 
 let ok = 0, bad = 0;
@@ -427,5 +427,9 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq(T.filterEx(T.S.exercises, F({ done: true }), K).map(e => e.id), ['my-thing'], 'logged = has a finished set');
 }
 
+{ const it = [{ exId: 'a', sets: 3 }, { exId: 'b', sets: 3 }, { exId: 'a', sets: 2 }];
+  eq(T.removeItem(it, 2, 'a'), true, 'remove finds the slot'); eq(it, [{ exId: 'a', sets: 3 }, { exId: 'b', sets: 3 }], 'only that slot goes');
+  T.removeItem(it, 5, 'b'); eq(it.map(i => i.exId), ['a'], 'falls back to matching the exercise');
+  eq(T.removeItem(it, 0, 'z'), false, 'missing exercise changes nothing'); }
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
