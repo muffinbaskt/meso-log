@@ -1367,7 +1367,7 @@ function openSoreCheck(){
   let h='<h2>Soreness check</h2><p style="color:var(--muted);margin:4px 0 0">Yes means I ask again tomorrow. No means I stop until you train that muscle again.</p>';
   d.forEach(m=>{
     const t=S.track[m.id],n=dayDiff(t.workedOn,today()),wd=new Date(t.workedOn+'T12:00:00').toLocaleDateString('en-US',{weekday:'long'});
-    h+='<div class="q"><b>Is your '+esc(m.name.toLowerCase())+' still sore?</b><span>Trained '+(n===1?'yesterday':n+' days ago')+' ('+wd+')'+(t.asked.length?' · sore at '+t.asked.length+' earlier check'+(t.asked.length>1?'s':''):'')+'</span><div class="opts"><button class="opt" data-act="scq" data-mu="'+m.id+'" data-v="1">Yes, still sore</button><button class="opt" data-act="scq" data-mu="'+m.id+'" data-v="0">No</button></div></div>';
+    h+='<div class="q"><b>'+(/s$/.test(m.name)?'Are':'Is')+' your '+esc(m.name.toLowerCase())+' still sore?</b><span>Trained '+(n===1?'yesterday':n+' days ago')+' ('+wd+')'+(t.asked.length?' · sore at '+t.asked.length+' earlier check'+(t.asked.length>1?'s':''):'')+'</span><div class="opts"><button class="opt" data-act="scq" data-mu="'+m.id+'" data-v="1">Yes, still sore</button><button class="opt" data-act="scq" data-mu="'+m.id+'" data-v="0">No</button></div></div>';
   });
   sheet(h+'<div class="foot"><button class="btn" data-act="sclater">Later</button><button class="btn pri" id="scsave" data-act="scsave" disabled>Save</button></div>');
 }
