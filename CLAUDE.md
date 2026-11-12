@@ -15,6 +15,7 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 - Bodyweight prompt (`maybeAskBw`) asks once per workout until a bodyweight set is logged, so adding a bodyweight exercise mid-workout asks too (queued after the Added question). It never overlaps the form check: form needs every set of an exercise done, bodyweight needs no bodyweight set done, and each waits for an open sheet.
 - Bodyweight-only exercises (`x.bwo`) show a locked weight (`.wlock`, dashed, "BW") instead of an input. Tapping it opens the bodyweight box; `setBodyweight` always snaps their unlogged sets to the new bodyweight. Added-weight and assisted exercises stay editable.
 - Skipped workouts: Finish with nothing logged asks "Skip this workout?" and saves `s.done` + `s.skipped` (`saveDone`). Calendar shows a dashed struck-through day, the date chip says Skipped, and exercises with no logged sets in a finished workout get a Skipped tag. Logging any set clears `s.skipped`. Skipped workouts add nothing to history, weights or set counts.
+- Finishing a workout (or a quick workout with sets logged) runs `fireworks()`: a ~3 s canvas overlay, pointer-events none, skipped under prefers-reduced-motion. Not on skipped workouts. `ui.justDone` holds the next workout’s bodyweight prompt until the next render, so it does not pop over the fireworks.
 - Run locally: `npm run dev`, then open http://localhost:5173 (or just open `index.html`).
 
 ## Layout of the code

@@ -1386,6 +1386,7 @@ function bwSheet(first){const s=curSession(),cur=(s&&s.exs.find(x=>x.abw!=null)|
   if(first)setTimeout(()=>{const i=$('#f_bwd');if(i)i.select()},0)}
 function maybeAskBw(){
   if(ui.tab!=='workout'||ui.signin||!$('#sheet').hidden)return;
+  if(ui.justDone){ui.justDone=false;return}   // just finished a workout: ask when the next one is opened, not on top of the fireworks
   const m=meso(),s=m&&curSession();if(!s||s.done||s.bwAsked||!usesBw(s)||s.exs.some(x=>x.abw!=null&&x.sets.some(t=>t.done)))return;   // asks until a bodyweight set is logged, so adding one mid-workout asks too
   const k=m.id+':'+s.key;ui.bwShown=ui.bwShown||{};if(ui.bwShown[k])return;ui.bwShown[k]=1;bwSheet(true);
 }
@@ -1438,7 +1439,23 @@ function exForm(e){
   sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="field"><label for="f_ty">Type</label><select id="f_ty" class="in" data-chg="exty"><option value="sets"'+(e.ivl?'':' selected')+'>Sets</option><option value="ivl"'+(e.ivl?' selected':'')+'>Interval (every minute on the minute)</option></select></div><div id="w_ivl"'+(e.ivl?'':' hidden')+'><div class="two"><div class="field"><label for="f_ivn">Rounds</label><input id="f_ivn" class="in" inputmode="numeric" value="'+iv.rounds+'"></div><div class="field"><label for="f_ivp">Starting reps per round</label><input id="f_ivp" class="in" inputmode="numeric" value="'+iv.reps+'"></div></div><div class="field"><label for="f_ivs">Seconds per round</label><input id="f_ivs" class="in" inputmode="numeric" value="'+iv.secs+'"></div><p style="color:var(--muted);font-size:14px;margin:6px 0 0">Time stays the same. After a week where you hit every round, the last 2 more rounds get +1 rep. When every round has it, the base goes up by 1.</p></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eqs">Equipment</label><select id="f_eqs" class="in" data-chg="exeq">'+EQUIP.map(q=>'<option value="'+esc(q[0])+'"'+(q[0]===eqv?' selected':'')+'>'+esc(q[1])+'</option>').join('')+'<option value="custom"'+(eqv==='custom'?' selected':'')+'>Custom…</option></select><input id="f_eq" class="in" placeholder="Name it, e.g. Hammer Strength" value="'+(eqv==='custom'?esc(e.equip):'')+'" style="margin-top:6px"'+(eqv==='custom'?'':' hidden')+'></div></div><div id="w_sets"'+(e.ivl?' hidden':'')+'><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div></div><div class="two"><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
 }
 // Saves the workout as done. With nothing logged it is marked skipped; logging a set later clears that.
-function saveDone(skip){const s=curSession(),m=meso();s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved')}
+// A short fireworks show over the screen when a workout is finished. Skipped for reduced-motion users; taps pass through.
+function fireworks(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const c=document.createElement('canvas'),x=c.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;
+  c.width=W*dpr;c.height=H*dpr;c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:90';
+  document.body.appendChild(c);x.scale(dpr,dpr);
+  const P=[],R=[],hues=[18,45,160,195,290,330],G=0.06,END=2600,t0=performance.now();
+  for(let i=0;i<5;i++)R.push({at:i*330+Math.random()*120,x:W*(.2+.6*Math.random()),y:H,ty:H*(.18+.25*Math.random()),h:hues[(Math.random()*hues.length)|0],up:true});
+  function boom(r){const n=46;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,v=2+Math.random()*2.6;P.push({x:r.x,y:r.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,h:r.h+Math.random()*30-15})}}
+  (function frame(now){const t=now-t0;x.clearRect(0,0,W,H);
+    for(const r of R){if(t<r.at||!r.up)continue;r.y-=(r.y-r.ty)*0.09+2;x.fillStyle='hsl('+r.h+' 90% 70%)';x.fillRect(r.x-1.5,r.y,3,8);if(r.y-r.ty<6){r.up=false;boom(r)}}
+    for(const q of P){q.vx*=.985;q.vy=q.vy*.985+G;q.x+=q.vx;q.y+=q.vy;q.l-=.013;if(q.l<=0)continue;
+      x.globalAlpha=q.l;x.fillStyle='hsl('+q.h+' 95% '+(55+q.l*20)+'%)';x.beginPath();x.arc(q.x,q.y,2.2,0,7);x.fill()}
+    x.globalAlpha=1;
+    if(t<END+1200&&(t<END||P.some(q=>q.l>0)))requestAnimationFrame(frame);else c.remove()})(t0);
+}
+function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
 
 /* ---------- action handlers ---------- */
@@ -1559,7 +1576,7 @@ sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(cu
   sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button><button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();
   if(m.quick){if(!sessCounts(s).d){ACT.dodelmeso({dataset:{id:m.id}});toast('Nothing logged, so nothing saved');return}
-    s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');return}
+    s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');fireworks();return}
   if(!sessCounts(s).d){sheet('<h2>Skip this workout?</h2><p style="color:var(--muted)">Nothing is logged yet. It will show as skipped in the calendar and nothing goes into your history. Next week’s weights and sets carry on from the last time you trained.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="doskip">Skip workout</button></div>');return}
   saveDone(false)},
 doskip(){saveDone(true)},
