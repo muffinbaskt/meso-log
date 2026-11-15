@@ -219,7 +219,9 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .panel{position:relative;width:100%;max-width:560px;max-height:88%;overflow:auto;background:var(--surface);border-radius:20px 20px 0 0;box-shadow:var(--shadow);
   padding:18px max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
 .panel.tall{height:88%}
-.pkbar{display:flex;gap:8px;margin-top:10px}
+.pkhead{position:sticky;top:-18px;z-index:2;background:var(--surface);margin:0 -18px;padding:12px 18px 6px}
+.pknew{background:var(--surface2);color:var(--accent)}.pknew svg{width:20px;height:20px;flex:none}
+.pkbar{display:flex;gap:8px}
 .pkbar .btn{height:46px;flex:none}
 .pkbar .btn.on{background:var(--accent-soft);color:var(--accent)}
 .fh{font-size:19px;font-weight:600;margin:20px 0 8px}
@@ -1091,7 +1093,7 @@ const I={
 };
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
 function sheet(html,cls){$('#sheet').innerHTML='<div class="scrim" data-act="close"></div><div class="panel'+(cls?' '+cls:'')+'" role="dialog" aria-modal="true"><button class="x" data-act="close" aria-label="Close">'+I.x+'</button>'+html+'</div>';$('#sheet').hidden=false}
-function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML='';if(ui.pq&&ui.pq.length)setTimeout(pqNext,0)}
+function closeSheet(){ui.pickNew=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';if(ui.pq&&ui.pq.length)setTimeout(pqNext,0)}
 // Runs queued actions one at a time, pausing while a sheet (feedback question) is open.
 function pqNext(){while(ui.pq&&ui.pq.length&&$('#sheet').hidden)ui.pq.shift()()}
 const unit=()=>S.prefs.unit||'lb';
@@ -1422,7 +1424,7 @@ const EQUIP_IDS=EQUIP.map(q=>q[0]);
 function pfCount(f){f=f||ui.pf;return (f.done?1:0)+(ui.pick&&ui.pick.muscle?0:f.mu.length)+f.eq.length+f.src.length}
 function openPicker(pick,title,keep){
   ui.pick=pick;ui.pickTitle=title;if(!keep)ui.pkq='';const n=pfCount();
-  sheet('<h2>'+esc(title)+'</h2><div class="pkbar"><input class="in" data-inp="pickq" placeholder="Search" aria-label="Search exercises" value="'+esc(ui.pkq)+'"><button class="btn'+(n?' on':'')+'" data-act="pkfilter">Filter'+(n?' ('+n+')':'')+'</button></div><div id="pklist">'+pickerList(ui.pkq)+'</div>','tall');
+  sheet('<h2>'+esc(title)+'</h2><div class="pkhead"><div class="pkbar"><input class="in" data-inp="pickq" placeholder="Search" aria-label="Search exercises" value="'+esc(ui.pkq)+'"><button class="btn'+(n?' on':'')+'" data-act="pkfilter">Filter'+(n?' ('+n+')':'')+'</button></div><button class="li pknew" data-act="pknew">'+I.plus+'<b>Create new exercise</b></button></div><div id="pklist">'+pickerList(ui.pkq)+'</div>','tall');
 }
 function pkFilterSheet(){
   const f=ui.pfd,only=ui.pick&&ui.pick.muscle,others=S.exercises.some(e=>!EQUIP_IDS.includes(e.equip));
@@ -1585,6 +1587,7 @@ doskip(){saveDone(true)},
 resetday(){confirmSheet('Reset this day?','Logged sets and feedback for this day are cleared and the plan is rebuilt.','doreset')},
 doreset(){const m=meso();delete m.sessions[ui.wk+'-'+ui.di];ui.tmp=null;mark('meso:'+m.id);closeSheet();render()},
 addex(){openPicker({kind:'add'},'Add exercise')},
+pknew(){const p=ui.pick;exForm({id:null,name:ui.pkq.trim(),muscle:p.muscle||(p.kind==='replace'&&muscleOf(curSession().exs[p.ei]))||'chest',equip:'',lo:8,hi:12,inc:5,bw:false});ui.pickNew=p},
 pkfilter(){ui.pfd=JSON.parse(JSON.stringify(ui.pf));pkFilterSheet()},
 pfchip(el){const a=ui.pfd[el.dataset.g],v=el.dataset.v,i=a.indexOf(v);if(i<0)a.push(v);else a.splice(i,1);el.classList.toggle('on',i<0);el.setAttribute('aria-pressed',i<0)},
 pfdone(el){const f=ui.pfd;f.done=!f.done;el.classList.toggle('on',f.done);el.setAttribute('aria-checked',f.done)},
@@ -1642,8 +1645,9 @@ exsave(el){const name=$('#f_name').value.trim();if(!name){toast('Give it a name'
   const kind=eqI?String(eqI[2]||0):e0?(e0.assist?'2':e0.plus?'3':e0.bw?'1':'0'):'0';
   if(eqSel==='custom'&&!$('#f_eq').value.trim()){toast('Name the equipment');return}
   const d={name,muscle:$('#f_mu').value,equip:eqSel==='custom'?$('#f_eq').value.trim():eqSel,lo,hi,inc,ivl:$('#f_ty').value==='ivl'?{rounds:Math.max(1,parseInt($('#f_ivn').value)||10),reps:Math.max(1,parseInt($('#f_ivp').value)||10),secs:Math.max(5,parseInt($('#f_ivs').value)||60)}:undefined,bw:['1','3'].includes(kind),plus:kind==='3',assist:kind==='2',load:hasBar(eqSel)?$('#f_ld').value:'default',bar:hasBar(eqSel)?num($('#f_bar').value)||0:0};   // no bar: clear any old setting
-  if(!d.ivl)delete d.ivl;if(el.dataset.id){const e0=ex(el.dataset.id);if(!d.ivl)delete e0.ivl;Object.assign(e0,d)}else{let id=idOf(name);while(ex(id))id+='-'+rid().slice(0,3);S.exercises.push({id,...d})}
-  mark('core');closeSheet();render()},
+  if(!d.ivl)delete d.ivl;if(el.dataset.id){const e0=ex(el.dataset.id);if(!d.ivl)delete e0.ivl;Object.assign(e0,d)}else{let id=idOf(name);while(ex(id))id+='-'+rid().slice(0,3);S.exercises.push({id,...d});var newId=id}
+  const pn=ui.pickNew;mark('core');closeSheet();render();
+  if(pn&&newId){ui.pick=pn;ACT.pickex({dataset:{id:newId}})}},   // made from the picker: carry on adding it
 exdel(el){const id=el.dataset.id;if(S.templates.some(t=>t.days.some(d=>d.items.some(i=>i.exId===id)))){toast('Remove it from your templates first');return}
   if(S.mesos.some(m=>Object.values(m.sessions).some(s=>s.exs.some(x=>x.exId===id)))){toast('It has logged sets, so it stays in the library');return}
   S.exercises=S.exercises.filter(e=>e.id!==id);mark('core');closeSheet();render()},
