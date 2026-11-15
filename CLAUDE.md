@@ -1,4 +1,4 @@
-# Meso Log
+# Meso Log (shown to users as "Fit R Good")
 
 Mesocycle workout tracker, built for Bryan and being opened up to other users (accounts via Supabase). Modeled on the flow of the RP Hypertrophy app he trains with: mesocycles, per-set logging, post-session feedback that adjusts sets, weight suggestions that follow logged performance. The adjustment rules are original, simple heuristics written for this app. They are not RP's algorithm, and no RP content (exercise videos, templates, copy) is included. `docs/reference/` holds the user's own screenshots, used only as a layout reference.
 
