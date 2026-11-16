@@ -1476,8 +1476,30 @@ function hrValue(b){HR.bpm=b;const el=$('#hrchip');if(el)el.textContent='♥ '+b
 // A short fireworks show over the screen when a workout is finished: plain bursts plus one rocket that explodes into a
 // cheer word. Skipped for reduced-motion users; taps pass through.
 const CHEERS=['Success','Most The Good','Yay','The Best!'];
+// Firework sounds, synthesized with Web Audio (no sound files): a rising whoosh per rocket, a boom per burst with a
+// low thump, and crackles as the sparks fade. Created inside the Finish tap so the browser allows playback.
+function fwAudio(){
+  try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;const a=new A();if(a.state==='suspended')a.resume();
+    const sr=a.sampleRate,len=sr*2,buf=a.createBuffer(1,len,sr),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+    const comp=a.createDynamicsCompressor(),out=a.createGain();out.gain.value=.55;out.connect(comp);comp.connect(a.destination);
+    function chain(pan){const g=a.createGain();if(a.createStereoPanner){const p=a.createStereoPanner();p.pan.value=pan;g.connect(p);p.connect(out)}else g.connect(out);return g}
+    function noise(t,dur,type,f0,f1,q,peak,atk,pan){const s=a.createBufferSource(),f=a.createBiquadFilter(),g=chain(pan);s.buffer=buf;f.type=type;f.Q.value=q;
+      f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(f1,t+dur);
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+atk);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+      s.connect(f);f.connect(g);s.start(t,Math.random()*(len/sr-dur-.1));s.stop(t+dur+.05)}
+    return{
+      whoosh(pan){const t=a.currentTime;noise(t,.75,'bandpass',500,2600,3,.12,.5,pan)},
+      boom(pan,big){const t=a.currentTime,k=big?1.4:1;
+        noise(t,1.3*k,'lowpass',2200,160,.7,.9*k,.006,pan);
+        const o=a.createOscillator(),g=chain(pan);o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(38,t+.35);
+        g.gain.setValueAtTime(.7*k,t);g.gain.exponentialRampToValueAtTime(.0001,t+.4);o.connect(g);o.start(t);o.stop(t+.45);
+        const n=big?34:16;for(let i=0;i<n;i++)noise(t+.25+Math.random()*(big?1.6:1),.03,'highpass',3500+Math.random()*3000,2500,1,.08+Math.random()*.14,.002,pan+(Math.random()-.5)*.6)},
+      close(){setTimeout(()=>a.close().catch(()=>{}),2500)}}
+  }catch(e){return null}
+}
 function fireworks(){
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const snd=fwAudio(),pan=px=>Math.max(-.8,Math.min(.8,(px/innerWidth)*1.6-.8));
   const c=document.createElement('canvas'),x=c.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;
   c.width=W*dpr;c.height=H*dpr;c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:90';
   document.body.appendChild(c);x.scale(dpr,dpr);
@@ -1497,7 +1519,7 @@ function fireworks(){
     boom({x:r.x,y:r.y,h:r.h});
   }
   (function frame(now){const t=now-t0;x.clearRect(0,0,W,H);
-    for(const r of R){if(t<r.at||!r.up)continue;r.y-=(r.y-r.ty)*0.09+2;x.fillStyle='hsl('+r.h+' 90% 70%)';x.fillRect(r.x-1.5,r.y,3,8);if(r.y-r.ty<6){r.up=false;r.word?wordBoom(r,now):boom(r)}}
+    for(const r of R){if(t<r.at||!r.up)continue;if(!r.go){r.go=1;snd&&snd.whoosh(pan(r.x))}r.y-=(r.y-r.ty)*0.09+2;x.fillStyle='hsl('+r.h+' 90% 70%)';x.fillRect(r.x-1.5,r.y,3,8);if(r.y-r.ty<6){r.up=false;snd&&snd.boom(pan(r.x),!!r.word);r.word?wordBoom(r,now):boom(r)}}
     for(const q of P){
       if(q.word){const a=now-q.b;
         if(a<650){const e=1-Math.pow(1-a/650,3);q.x=q.sx+(q.tx-q.sx)*e;q.y=q.sy+(q.ty-q.sy)*e}
@@ -1507,7 +1529,7 @@ function fireworks(){
       q.vx*=.985;q.vy=q.vy*.985+G;q.x+=q.vx;q.y+=q.vy;q.l-=.013;if(q.l<=0)continue;
       x.globalAlpha=q.l;x.fillStyle='hsl('+q.h+' 95% '+(55+q.l*20)+'%)';x.beginPath();x.arc(q.x,q.y,2.2,0,7);x.fill()}
     x.globalAlpha=1;
-    if(t<END||R.some(r=>r.up)||P.some(q=>q.l>0))requestAnimationFrame(frame);else c.remove()})(t0);
+    if(t<END||R.some(r=>r.up)||P.some(q=>q.l>0))requestAnimationFrame(frame);else{c.remove();snd&&snd.close()}})(t0);
 }
 function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
