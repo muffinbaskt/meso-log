@@ -1449,7 +1449,9 @@ function exForm(e){
   sheet('<h2>'+(e.id?'Edit exercise':'New exercise')+'</h2><div class="field"><label for="f_name">Name</label><input id="f_name" class="in" value="'+esc(e.name)+'"></div><div class="field"><label for="f_ty">Type</label><select id="f_ty" class="in" data-chg="exty"><option value="sets"'+(e.ivl?'':' selected')+'>Sets</option><option value="ivl"'+(e.ivl?' selected':'')+'>Interval (every minute on the minute)</option></select></div><div id="w_ivl"'+(e.ivl?'':' hidden')+'><div class="two"><div class="field"><label for="f_ivn">Rounds</label><input id="f_ivn" class="in" inputmode="numeric" value="'+iv.rounds+'"></div><div class="field"><label for="f_ivp">Starting reps per round</label><input id="f_ivp" class="in" inputmode="numeric" value="'+iv.reps+'"></div></div><div class="field"><label for="f_ivs">Seconds per round</label><input id="f_ivs" class="in" inputmode="numeric" value="'+iv.secs+'"></div><p style="color:var(--muted);font-size:14px;margin:6px 0 0">Time stays the same. After a week where you hit every round, the last 2 more rounds get +1 rep. When every round has it, the base goes up by 1.</p></div><div class="two"><div class="field"><label for="f_mu">Muscle</label><select id="f_mu" class="in">'+MUSCLES.map(m=>'<option value="'+m.id+'"'+(m.id===e.muscle?' selected':'')+'>'+m.name+'</option>').join('')+'</select></div><div class="field"><label for="f_eqs">Equipment</label><select id="f_eqs" class="in" data-chg="exeq">'+EQUIP.map(q=>'<option value="'+esc(q[0])+'"'+(q[0]===eqv?' selected':'')+'>'+esc(q[1])+'</option>').join('')+'<option value="custom"'+(eqv==='custom'?' selected':'')+'>Custom…</option></select><input id="f_eq" class="in" placeholder="Name it, e.g. Hammer Strength" value="'+(eqv==='custom'?esc(e.equip):'')+'" style="margin-top:6px"'+(eqv==='custom'?'':' hidden')+'></div></div><div id="w_sets"'+(e.ivl?' hidden':'')+'><div class="two"><div class="field"><label for="f_lo">Rep range low</label><input id="f_lo" class="in" inputmode="numeric" value="'+e.lo+'"></div><div class="field"><label for="f_hi">Rep range high</label><input id="f_hi" class="in" inputmode="numeric" value="'+e.hi+'"></div></div><div class="two"><div class="field"><label for="f_inc">Weight step</label><input id="f_inc" class="in" inputmode="decimal" value="'+e.inc+'"></div></div><div class="two" id="w_load"'+(hasBar(eqv)?'':' hidden')+'><div class="field"><label for="f_ld">Weight entry</label><select id="f_ld" class="in"><option value="default"'+(!e.load||e.load==='default'?' selected':'')+'>Use default</option><option value="total"'+(e.load==='total'?' selected':'')+'>Total weight</option><option value="side"'+(e.load==='side'?' selected':'')+'>One end only</option></select></div><div class="field"><label for="f_bar">Bar weight</label><input id="f_bar" class="in" inputmode="decimal" placeholder="Default" value="'+(e.bar>0?e.bar:'')+'"></div></div></div><div class="foot">'+(e.id?'<button class="btn bad" data-act="exdel" data-id="'+e.id+'">Delete</button>':'')+'<button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="exsave" data-id="'+(e.id||'')+'">Save</button></div>');
 }
 // Saves the workout as done. With nothing logged it is marked skipped; logging a set later clears that.
-// A short fireworks show over the screen when a workout is finished. Skipped for reduced-motion users; taps pass through.
+// A short fireworks show over the screen when a workout is finished: plain bursts plus one rocket that explodes into a
+// cheer word. Skipped for reduced-motion users; taps pass through.
+const CHEERS=['Success','Most The Good','Yay','The Best!'];
 function fireworks(){
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const c=document.createElement('canvas'),x=c.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;
@@ -1457,13 +1459,31 @@ function fireworks(){
   document.body.appendChild(c);x.scale(dpr,dpr);
   const P=[],R=[],hues=[18,45,160,195,290,330],G=0.06,END=2600,t0=performance.now();
   for(let i=0;i<5;i++)R.push({at:i*330+Math.random()*120,x:W*(.2+.6*Math.random()),y:H,ty:H*(.18+.25*Math.random()),h:hues[(Math.random()*hues.length)|0],up:true});
+  R.push({at:600,x:W/2,y:H,ty:H*.3,h:45,up:true,word:CHEERS[(Math.random()*CHEERS.length)|0]});
   function boom(r){const n=46;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,v=2+Math.random()*2.6;P.push({x:r.x,y:r.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,h:r.h+Math.random()*30-15})}}
+  // Word burst: sample the word's pixels, then each spark flies from the burst point to its spot, holds, and falls away.
+  function wordBoom(r,now){
+    const o=document.createElement('canvas').getContext('2d'),font=getComputedStyle(document.documentElement).getPropertyValue('--font-display')||'sans-serif';
+    let fs=150;o.font='800 '+fs+'px '+font;fs=Math.min(fs,Math.floor(fs*W*.88/o.measureText(r.word).width));
+    const ow=Math.ceil(W),oh=Math.ceil(fs*1.4);o.canvas.width=ow;o.canvas.height=oh;
+    o.font='800 '+fs+'px '+font;o.textAlign='center';o.textBaseline='middle';o.fillStyle='#fff';o.fillText(r.word,ow/2,oh/2);
+    const d=o.getImageData(0,0,ow,oh).data,st=Math.max(3,Math.round(fs/18)),wh=hues[(Math.random()*hues.length)|0];
+    for(let py=0;py<oh;py+=st)for(let px=0;px<ow;px+=st)if(d[(py*ow+px)*4+3]>128)
+      P.push({word:1,sx:r.x,sy:r.y,tx:px,ty:r.y-oh/2+py,b:now,x:r.x,y:r.y,vx:0,vy:0,l:1,s:Math.max(1.4,st*.5),h:wh+Math.random()*16-8});   // one colour per word keeps it readable
+    boom({x:r.x,y:r.y,h:r.h});
+  }
   (function frame(now){const t=now-t0;x.clearRect(0,0,W,H);
-    for(const r of R){if(t<r.at||!r.up)continue;r.y-=(r.y-r.ty)*0.09+2;x.fillStyle='hsl('+r.h+' 90% 70%)';x.fillRect(r.x-1.5,r.y,3,8);if(r.y-r.ty<6){r.up=false;boom(r)}}
-    for(const q of P){q.vx*=.985;q.vy=q.vy*.985+G;q.x+=q.vx;q.y+=q.vy;q.l-=.013;if(q.l<=0)continue;
+    for(const r of R){if(t<r.at||!r.up)continue;r.y-=(r.y-r.ty)*0.09+2;x.fillStyle='hsl('+r.h+' 90% 70%)';x.fillRect(r.x-1.5,r.y,3,8);if(r.y-r.ty<6){r.up=false;r.word?wordBoom(r,now):boom(r)}}
+    for(const q of P){
+      if(q.word){const a=now-q.b;
+        if(a<650){const e=1-Math.pow(1-a/650,3);q.x=q.sx+(q.tx-q.sx)*e;q.y=q.sy+(q.ty-q.sy)*e}
+        else if(a<2100){q.x=q.tx+Math.random()*.8-.4;q.y=q.ty+Math.random()*.8-.4}   // hold, with a little shimmer
+        else{q.vy+=G*.8;q.vx*=.98;q.x+=q.vx+(Math.random()-.5)*.3;q.y+=q.vy;q.l-=.02}
+        if(q.l<=0)continue;x.globalAlpha=q.l;x.fillStyle='hsl('+q.h+' 95% '+(62+Math.random()*12)+'%)';x.beginPath();x.arc(q.x,q.y,q.s,0,7);x.fill();continue}
+      q.vx*=.985;q.vy=q.vy*.985+G;q.x+=q.vx;q.y+=q.vy;q.l-=.013;if(q.l<=0)continue;
       x.globalAlpha=q.l;x.fillStyle='hsl('+q.h+' 95% '+(55+q.l*20)+'%)';x.beginPath();x.arc(q.x,q.y,2.2,0,7);x.fill()}
     x.globalAlpha=1;
-    if(t<END+1200&&(t<END||P.some(q=>q.l>0)))requestAnimationFrame(frame);else c.remove()})(t0);
+    if(t<END||R.some(r=>r.up)||P.some(q=>q.l>0))requestAnimationFrame(frame);else c.remove()})(t0);
 }
 function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
