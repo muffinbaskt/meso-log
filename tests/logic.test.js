@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg
 };`);
 
 let ok = 0, bad = 0;
@@ -437,5 +437,13 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
 { const s = { exs: [{ exId: 'push-up', bwo: true, abw: 180, sets: [{ w: 180, pw: 180, r: 10, done: true }, { w: 175, pw: 180, r: 10 }] }] };
   T.setBodyweight(s, 180); eq(s.exs[0].sets.map(t => t.w), [180, 180], 'bodyweight-only unlogged sets snap to bodyweight even when it is unchanged');
   T.setBodyweight(s, 185); eq(s.exs[0].sets.map(t => t.w), [180, 185], 'logged sets keep the weight they were done at'); }
+{ const dv = b => new DataView(new Uint8Array(b).buffer);
+  eq(T.parseHr(dv([0x00, 72])), 72, '8-bit heart rate');
+  eq(T.parseHr(dv([0x01, 0x2c, 0x01])), 300, '16-bit heart rate, little endian');
+  eq(T.parseHr(dv([0x16, 130, 0, 0])), 130, 'other flag bits (contact, RR) ignored');
+  const s = {};
+  [[100, 0], [120, 4000], [140, 10000], [0, 11000], [250, 12000], [110, 21000]].forEach(([b, t]) => T.addHr(s, b, t));
+  eq([s.hr.n, s.hr.max, T.hrAvg(s.hr)], [4, 140, 118], 'out-of-range readings skipped; avg and peak');
+  eq(s.hr.pts, [100, 140, 110], 'one stored point per 10 s'); }
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
