@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet
 };`);
 
 let ok = 0, bad = 0;
@@ -244,6 +244,20 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   T.setBodyweight(s, 220, 2); T.setBodyweight(s, 215, 2);
   eq(x.sets[1].pr, 10, 'changing back restores the original reps');
   T.setBodyweight(s, 230, null); eq([x.sets[1].w, x.sets[1].pr], [230, 10], 'deload (no RIR) changes the weight only'); }
+{ // an added set gets its own position's plan, the same as Recalculate plan would give
+  T.S = T.seedState(); T.normalize(); T.S.prefs.bw = 230;
+  const mm = { id: 'm6', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 6, template: 'x' };
+  T.S.mesos.push(mm); T.S.activeMeso = 'm6';
+  const exId = mm.days[0].items[0].exId, e = T.ex(exId); Object.assign(e, { lo: 5, hi: 20, inc: 5, bw: true }); delete e.plus; delete e.assist;
+  mm.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', done: true, fb: {}, exs: [{ exId, bwo: true, abw: 215, side: false, bar: 0, planned: 3, base: 3,
+    sets: [{ w: 215, r: 12, done: true }, { w: 215, r: 9, done: true }, { w: 215, r: 7, done: true }] }] };
+  const s = { wk: 2, di: 0, key: '2-0', done: false, fb: {}, exs: [T.makeEx(mm, 2, 0, exId, 1)] }, x = s.exs[0];
+  x.sets = x.sets.slice(0, 1);
+  const q = T.planSet(mm, s, x, 1);
+  const fresh = T.makeEx(mm, 2, 0, exId, 3).sets;
+  eq([q.w, q.r], [fresh[1].w, fresh[1].r], 'set 2 is planned from last time\'s set 2');
+  eq(q.r < x.sets[0].pr, true, 'so it is not a copy of set 1');
+  eq(T.planSet(mm, s, x, 5).r, fresh[2].r, 'past last time\'s sets it follows the last one'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',

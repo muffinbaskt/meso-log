@@ -801,9 +801,10 @@ function distribute(bases,delta){
   while(delta<0&&c.some(x=>x>1)){const m=Math.max(...c);c[c.lastIndexOf(m)]--;delta++}
   return c;
 }
-function resize(x,n){
+function resize(x,n,pl){
   const done=x.sets.filter(t=>t.done).length;n=Math.max(n,done);
-  while(x.sets.length<n){const l=x.sets[x.sets.length-1]||{w:null,r:10,pw:null,pr:10};x.sets.push(withType({w:l.pw??l.w,r:l.pr??l.r,pw:l.pw??l.w,pr:l.pr??l.r,done:false,...(l.pr0!=null?{pr0:l.pr0}:{})},l.ty))}
+  while(x.sets.length<n){const l=x.sets[x.sets.length-1]||{w:null,r:10,pw:null,pr:10},q=pl&&pl(x.sets.length);
+    x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,done:false}:{w:l.pw??l.w,r:l.pr??l.r,pw:l.pw??l.w,pr:l.pr??l.r,done:false,...(l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l.ty))}
   while(x.sets.length>n){let i=-1;for(let k=x.sets.length-1;k>=0;k--)if(!x.sets[k].done){i=k;break}if(i<0)break;x.sets.splice(i,1)}
   x.planned=n;
 }
@@ -813,7 +814,7 @@ function applyMuscle(m,s,muscle){
   fb.delta=prioDelta(setDelta(fb.sor,pf.pump,pf.vol),prioOf(m,muscle),fb.sor,pf.vol);
   const xs=s.exs.filter(x=>!x.ivl&&ex(x.exId)?.muscle===muscle);   // interval rounds are fixed by their own plan
   const counts=distribute(xs.map(x=>x.base),fb.delta);
-  xs.forEach((x,i)=>resize(x,counts[i]));
+  xs.forEach((x,i)=>resize(x,counts[i],setPlanner(m,s,x)));
 }
 function makeEx(m,wk,di,exId,tplSets){
   const e=ex(exId),o=(wk-1)*100+di,dl=isDl(m,wk),lp=lastPerf(exId,m,o),t=m.quick?(lp?lp.rir:QUICK_RIR):rirFor(m,wk);
@@ -833,16 +834,22 @@ function makeEx(m,wk,di,exId,tplSets){
 /* Recalculate plan: re-plans the unlogged sets of a session exercise from the latest history, as a fresh workout
    would. Logged sets, the set count and set types stay. Weights are converted into this exercise's own weight entry
    (per end, assistance, added) in case the exercise setting changed since. Returns how many sets changed. */
+// Fresh plan for set position i of a session exercise, in that exercise's own weight entry. f = a makeEx result to reuse.
+function planSet(m,s,x,i,f){
+  f=f||makeEx(m,s.wk,s.di,x.exId,Math.max(i+1,x.sets.length));if(x.ivl||!f.sets.length)return null;
+  const q=f.sets[Math.min(i,f.sets.length-1)],toEntered=T=>x.assist?(x.abw||0)-T:x.plus?T-(x.abw||0):x.side?(T-(x.bar||0))/2:T;
+  return {w:q.w==null?null:x.bwo?x.abw:Math.round(toEntered(totOf(f,q.w))*4)/4,r:q.r};
+}
+// Planner for sets added to x (soreness/volume changes, Add set): each new set gets its own position's plan.
+const setPlanner=(m,s,x)=>{let f=null;return i=>{f=f||makeEx(m,s.wk,s.di,x.exId,Math.max(i+1,x.sets.length));return planSet(m,s,x,i,f)}};
 function replanEx(m,s,x){
   if(x.ivl)return 0;
   const f=makeEx(m,s.wk,s.di,x.exId,x.sets.length);if(!f.sets.length)return 0;
-  if(f.abw!=null){x.abw=f.abw;delete x.pbw}   // the fresh plan is at the latest bodyweight
-  const toEntered=T=>x.assist?(x.abw||0)-T:x.plus?T-(x.abw||0):x.side?(T-(x.bar||0))/2:T;
+  if(f.abw!=null)x.abw=f.abw;   // the fresh plan is at the latest bodyweight
   let n=0;
-  x.sets.forEach((t,i)=>{if(t.done)return;const q=f.sets[Math.min(i,f.sets.length-1)];
-    const w=q.w==null?null:Math.round(toEntered(totOf(f,q.w))*4)/4;
-    if(t.w!==w||t.r!==q.r||t.pw!==w||t.pr!==q.r)n++;
-    t.w=w;t.r=q.r;t.pw=w;t.pr=q.r;delete t.pr0});
+  x.sets.forEach((t,i)=>{if(t.done)return;const q=planSet(m,s,x,i,f);
+    if(t.w!==q.w||t.r!==q.r||t.pw!==q.w||t.pr!==q.r)n++;
+    t.w=q.w;t.r=q.r;t.pw=q.w;t.pr=q.r;delete t.pr0;delete t.pb});
   if(f.swap)x.swap=true;
   return n;
 }
@@ -918,13 +925,13 @@ const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
 // when you are heavier, assistance grows. Added weight and assistance round to the exercise's step and never go below 0.
 // Bodyweight-only reps follow too when rir (the session's target RIR) is given: each unlogged set keeps its estimated
 // 1RM, so heavier means fewer reps. Worked from the reps first planned (pr0) at the bodyweight they were planned for
-// (pbw), so changing it back and forth never drifts. Reps the user typed over are left alone. No rir (deload) = weight only.
+// (pb, per set), so changing it back and forth never drifts. Reps the user typed over are left alone. No rir (deload) = weight only.
 function setBodyweight(s,v,rir){
   for(const x of s.exs){if(x.abw==null)continue;const d=v-x.abw,inc=(ex(x.exId)||{}).inc||5;
-    if(x.bwo){if(x.pbw==null)x.pbw=x.abw;x.abw=v;
+    if(x.bwo){const ob=x.abw;x.abw=v;
       for(const t of x.sets){if(t.done)continue;
-        if(rir!=null&&t.pr!=null&&x.pbw>0){if(t.pr0==null)t.pr0=t.pr;
-          const nr=Math.max(1,Math.round((x.pbw*(1+(t.pr0+rir)/30)/v-1)*30-rir+1e-9));if(t.r===t.pr)t.r=nr;t.pr=nr}
+        if(rir!=null&&t.pr!=null&&ob>0){if(t.pr0==null){t.pr0=t.pr;t.pb=ob}
+          const nr=Math.max(1,Math.round((t.pb*(1+(t.pr0+rir)/30)/v-1)*30-rir+1e-9));if(t.r===t.pr)t.r=nr;t.pr=nr}
         t.w=v;t.pw=v}
       continue}   // bodyweight-only weight is locked to bodyweight
     x.abw=v;
@@ -1675,7 +1682,7 @@ formset(el){const s=curSession(),x=s.exs[ui.formEi];if(x){x.form=+el.dataset.v;c
 xform(){askForm(ui.ei)},
 xfb(){const s=curSession(),x=s.exs[ui.ei];postSheet(s,muscleOf(x),true)},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
-xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false,...(l&&l.pr0!=null?{pr0:l.pr0}:{})},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
+xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1],q=planSet(meso(),s,x,x.sets.length);x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,done:false}:{w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false,...(l&&l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xreplan(){const s=curSession(),m=meso(),x=s.exs[ui.ei],n=replanEx(m,s,x);matchTargets(x);if(n)commit(s);closeSheet();render();toast(n?'Plan recalculated: '+n+' set'+(n>1?'s':'')+' changed':'Plan is already up to date')},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
 xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
