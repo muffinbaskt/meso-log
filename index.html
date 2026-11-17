@@ -1151,8 +1151,25 @@ function commit(s){const m=meso();if(!m.sessions[s.key])m.sessions[s.key]=s;mark
 function gotoPending(){const m=meso();if(!m)return;const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null}
 
 /* ---------- views ---------- */
+// Soreness already known from today's check-ins changes the sets when the workout is opened, not at the first logged
+// set, so the list you start with is the list you do. Only the next workout to do, and only muscles with no logged set
+// and no check-in still waiting for today's answer (that answer could change it). Others still ask at the first set.
+function autoSore(){
+  if(ui.tab!=='workout')return;const m=meso();if(!m||m.quick)return;const s=curSession();if(!s||s.done||isDl(m,s.wk))return;
+  const p=nextPending(m);if(p.wk!==s.wk||p.di!==s.di)return;
+  const due=new Set(dueSoreness().map(z=>z.id)),hit=[];let set=false;
+  for(const mu of new Set(s.exs.filter(x=>!x.ivl).map(muscleOf))){
+    if(!mu||due.has(mu)||muscleHasDone(s,mu))continue;const fb=s.fb[mu]||{};
+    if(fb.sor!=null||fb.skip||!prevMuscle(m,mu,ord(s)))continue;
+    const dv=deriveSoreness(mu);if(dv==null)continue;
+    s.fb[mu]=fb;fb.sor=dv;fb.auto=true;set=true;const before=s.exs.reduce((a,x)=>a+x.sets.length,0);applyMuscle(m,s,mu);
+    const d=s.exs.reduce((a,x)=>a+x.sets.length,0)-before;if(d)hit.push(MUS[mu].name+' '+(d>0?'+':'−')+Math.abs(d)+' set'+(Math.abs(d)>1?'s':''))}
+  if(set)commit(s);
+  if(hit.length)toast('Sets changed from your soreness check-ins: '+hit.join(', '));
+}
 function render(){
   if(ui.signin){$('#app').innerHTML=viewSignin();mountCaptcha();return}
+  autoSore();
   const y=window.scrollY;
   const v={workout:viewWorkout,mesos:viewMesos,templates:viewTemplates,exercises:viewExercises,more:viewMore}[ui.tab]();
   $('#app').innerHTML='<div class="wrap">'+v+'</div>'+tabbar();
@@ -1600,7 +1617,7 @@ scopen(){openSoreCheck()},
 sclater(){closeSheet()},
 scq(el){pickOpt(el);ui.sc[el.dataset.mu]=+el.dataset.v;$('#scsave').disabled=Object.keys(ui.sc).length<ui.scn},
 scsave(){const d=today();let still=0;for(const mu in ui.sc){const t=S.track[mu];if(!t)continue;const sore=ui.sc[mu]===1;t.asked.push({d,sore});t.lastAsked=d;if(sore)still++;else{t.status='healed';t.healedOn=d}}
-  mark('core');closeSheet();render();toast(still?still+' still sore. I will ask again tomorrow.':'Good. No more checks until you train those again.')},
+  mark('core');closeSheet();toast(still?still+' still sore. I will ask again tomorrow.':'Good. No more checks until you train those again.');render()},   // render after: a set change toast from autoSore replaces this one
 xload(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId);if(e.bw)return;ui.ld={side:!!x.side};
   sheet('<h2>Weight entry</h2><div class="q"><b>'+esc(e.name)+'</b><span>What number do you type in the weight box?</span><div class="opts"><button class="opt'+(x.side?'':' on')+'" data-act="ldpick" data-v="0">Total weight<br>bar and both ends</button><button class="opt'+(x.side?' on':'')+'" data-act="ldpick" data-v="1">One end only<br>bar not counted</button></div></div><div class="field"><label for="f_bar">Bar weight ('+unit()+')</label><input id="f_bar" class="in" inputmode="decimal" value="'+fmt(x.side?x.bar:(e.bar>0?e.bar:S.prefs.bar))+'"></div><p style="color:var(--muted);font-size:14px">Progress is always judged on total weight: one end, the bar, and the other end. Weights already in this workout are converted so the total stays the same, and this exercise remembers the choice.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="ldsave">Save</button></div>')},
 ldpick(el){pickOpt(el);ui.ld.side=el.dataset.v==='1'},
