@@ -721,7 +721,10 @@ function lastPerf(exId,m,beforeOrd){
   // Myorep sets (short rests, total reps) overstate strength, so regular sets decide when there are any.
   const reg=pick.done.filter(t=>!t.ty),cand=reg.length?reg:pick.done;
   let best=cand[0];for(const t of cand)if(e1rm(T(t),t.r)>e1rm(T(best),best.r))best=t;
-  return {tot:T(best),r:best.r,rir:rirFor(pick.mm,pick.s.wk)};
+  // Each set position's own result too (null where that set was not logged or does not count), so later sets that
+  // drop off with fatigue are planned from what they did, not from the best set.
+  const sets=pick.x.sets.map(t=>t.done&&t.w>0&&t.r>0&&(!reg.length||!t.ty)?{tot:T(t),r:t.r}:null);
+  return {tot:T(best),r:best.r,rir:rirFor(pick.mm,pick.s.wk),sets};
 }
 function prevWith(m,exId,o){
   let hit=null;
@@ -819,9 +822,13 @@ function makeEx(m,wk,di,exId,tplSets){
   if(prev&&prev.x.joint>=2){base=Math.max(1,base-1);swap=prev.x.joint>=3}
   if(dl)base=Math.max(1,Math.ceil(base*0.5));
   const mode=loadMode(e),p=planLoad(e,lp,t,dl,mode);
+  // Per-set plans: set i follows set i from last time; a set with nothing to go on follows the nearest earlier one,
+  // else the best set.
+  const ps=lp&&lp.sets?lp.sets.map(q=>q&&planLoad(e,{tot:q.tot,r:q.r,rir:lp.rir},t,dl,mode)):[];
+  const planAt=i=>{for(let j=Math.min(i,ps.length-1);j>=0;j--)if(ps[j])return ps[j];return p};
   // Set types carry over to the same set position from last time.
   const types=prev?prev.x.sets.map(t=>t.ty):[];
-  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>withType({w:p.w,r:p.r,pw:p.w,pr:p.r,done:false},types[i]))};
+  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>{const q=planAt(i);return withType({w:q.w,r:q.r,pw:q.w,pr:q.r,done:false},types[i])})};
 }
 /* Set types: none = regular, 'myo' = myorep (mini-sets, log total reps), 'match' = myorep match (target = set 1's reps). */
 function withType(t,ty){if(ty==='myo'||ty==='match')t.ty=ty;return t}

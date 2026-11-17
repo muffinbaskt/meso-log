@@ -185,6 +185,22 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   const nx = T.makeEx(mm, 2, 0, exId, 3);
   eq(nx.sets.map(t => t.ty), ['myo', 'match'], 'types carry to the same sets next week'); }
 
+{ // each set is planned from the same set last time, so fatigue drop-offs carry over
+  T.S = T.seedState(); T.normalize();
+  const mm = { id: 'm3', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 3, template: 'x', style: 'test' };
+  T.S.mesos.push(mm); T.S.activeMeso = 'm3';
+  const exId = mm.days[0].items[0].exId, e = T.ex(exId); e.lo = 8; e.hi = 15; e.inc = 5; e.load = 'total'; e.bw = false;
+  mm.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', done: true, fb: {}, exs: [{ exId, side: false, bar: 0, planned: 3, base: 3,
+    sets: [{ w: 30, r: 11, done: true }, { w: 25, r: 11, done: true }, { w: 25, r: 11, done: true }] }] };
+  const nx = T.makeEx(mm, 2, 0, exId, 3);
+  eq(nx.sets.map(t => [t.w, t.r]), [[30, 10], [25, 10], [25, 10]], 'later sets follow their own last result');
+  eq(nx.sets.map(t => [t.pw, t.pr]), [[30, 10], [25, 10], [25, 10]], 'planned values match');
+  mm.sessions['1-0'].exs[0].sets[2].done = false;
+  eq(T.makeEx(mm, 2, 0, exId, 3).sets.map(t => t.w), [30, 25, 25], 'an unlogged set follows the set before it');
+  mm.sessions['1-0'].exs[0].planned = 4;
+  eq(T.makeEx(mm, 2, 0, exId, 4).sets.map(t => t.w), [30, 25, 25, 25], 'an extra set copies the last one');
+  mm.sessions['1-0'].exs[0].sets[0].done = false;
+  eq(T.makeEx(mm, 2, 0, exId, 3).sets[0].w, 25, 'a first set with no result uses the best set'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',
