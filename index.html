@@ -830,6 +830,21 @@ function makeEx(m,wk,di,exId,tplSets){
   const types=prev?prev.x.sets.map(t=>t.ty):[];
   return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>{const q=planAt(i);return withType({w:q.w,r:q.r,pw:q.w,pr:q.r,done:false},types[i])})};
 }
+/* Recalculate plan: re-plans the unlogged sets of a session exercise from the latest history, as a fresh workout
+   would. Logged sets, the set count and set types stay. Weights are converted into this exercise's own weight entry
+   (per end, assistance, added) in case the exercise setting changed since. Returns how many sets changed. */
+function replanEx(m,s,x){
+  if(x.ivl)return 0;
+  const f=makeEx(m,s.wk,s.di,x.exId,x.sets.length);if(!f.sets.length)return 0;
+  const toEntered=T=>x.assist?(x.abw||0)-T:x.plus?T-(x.abw||0):x.side?(T-(x.bar||0))/2:T;
+  let n=0;
+  x.sets.forEach((t,i)=>{if(t.done)return;const q=f.sets[Math.min(i,f.sets.length-1)];
+    const w=q.w==null?null:Math.round(toEntered(totOf(f,q.w))*4)/4;
+    if(t.w!==w||t.r!==q.r||t.pw!==w||t.pr!==q.r)n++;
+    t.w=w;t.r=q.r;t.pw=w;t.pr=q.r});
+  if(f.swap)x.swap=true;
+  return n;
+}
 /* Set types: none = regular, 'myo' = myorep (mini-sets, log total reps), 'match' = myorep match (target = set 1's reps). */
 function withType(t,ty){if(ty==='myo'||ty==='match')t.ty=ty;return t}
 // Points every unlogged myorep-match set at the reps logged on set 1. Returns the indexes it changed.
@@ -1095,6 +1110,7 @@ const I={
  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8l4 4V20.5H6z"/><path d="M12 11v5M9.5 13.5h5"/></svg>',
  grip:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+ redo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7L20 8.5"/><path d="M20 3.5v5h-5"/></svg>',
  swap:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>',
  skip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l9 7-9 7zM18 5v14"/></svg>',
  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg>',
@@ -1602,7 +1618,7 @@ fbsavepost(){const s=curSession(),mu=ui.fb.mu,xs=s.exs.filter(x=>muscleOf(x)===m
 /* exercise menu */
 exmenu(el){const c=ctx(el);ui.ei=c.ei;const s=curSession(),x=s.exs[ui.ei],nx=s.exs[ui.ei+1],linked=x.ss&&nx;sheet('<h2>Exercise</h2><div class="menu">'
   +(linked||(nx&&!x.ivl&&!nx.ivl)?'<button class="li" data-act="xlink">'+I.link+'<div><b>'+(linked?'Unlink superset':'Superset with next exercise')+'</b><small>'+(linked?'Separate from ':'Alternate sets with ')+esc(ex(nx.exId).name)+'</small></div></button>':'')
-  +'<button class="li" data-act="xnote">'+I.note+'Notes</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xform">'+I.check+'Form</button>'+(meso().quick?'':'<button class="li" data-act="xfb">'+I.chart+'Pump &amp; volume</button>')+'<button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
+  +'<button class="li" data-act="xnote">'+I.note+'Notes</button><button class="li" data-act="xorder">'+I.up+'Reorder exercises</button><button class="li" data-act="xrep">'+I.swap+'Replace</button><button class="li'+(ex(curSession().exs[ui.ei].exId).bw?' off':'')+'" data-act="xload">'+I.t_ex+'Weight entry</button><button class="li" data-act="xjoint">'+I.warn+'Joint pain</button><button class="li" data-act="xform">'+I.check+'Form</button>'+(meso().quick?'':'<button class="li" data-act="xfb">'+I.chart+'Pump &amp; volume</button>')+(x.ivl||!x.sets.some(t=>!t.done)?'':'<button class="li" data-act="xreplan">'+I.redo+'<div><b>Recalculate plan</b><small>Re-plan the sets you have not logged from your latest history</small></div></button>')+'<button class="li" data-act="xadd">'+I.plus+'Add set</button><button class="li" data-act="xskip">'+I.skip+'Skip remaining sets</button><button class="li bad" data-act="xrm">'+I.trash+'Remove exercise</button></div>')},
 xnote(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId);
   sheet('<h2>Notes</h2><p style="color:var(--muted);margin-top:0">'+esc(e.name)+'</p><div class="field"><label for="f_note">Today only</label><textarea id="f_note" class="in" placeholder="Just for this workout">'+esc(x.note||'')+'</textarea></div><div class="field"><label for="f_pin">Pinned to this exercise</label><textarea id="f_pin" class="in" placeholder="Shows every time '+esc(e.name)+' comes up">'+esc(e.pin||'')+'</textarea></div><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="xnotesave">Save</button></div>')},
 xnotesave(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId),n=$('#f_note').value.trim(),pn=$('#f_pin').value.trim();
@@ -1633,6 +1649,7 @@ xform(){askForm(ui.ei)},
 xfb(){const s=curSession(),x=s.exs[ui.ei];postSheet(s,muscleOf(x),true)},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
 xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
+xreplan(){const s=curSession(),m=meso(),x=s.exs[ui.ei],n=replanEx(m,s,x);matchTargets(x);if(n)commit(s);closeSheet();render();toast(n?'Plan recalculated: '+n+' set'+(n>1?'s':'')+' changed':'Plan is already up to date')},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
 xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
   if(!m.blank){ui.rmd={ei,id};   // planned day: ask whether it also leaves later weeks, like Replace does

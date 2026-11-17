@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx
 };`);
 
 let ok = 0, bad = 0;
@@ -201,6 +201,23 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   eq(T.makeEx(mm, 2, 0, exId, 4).sets.map(t => t.w), [30, 25, 25, 25], 'an extra set copies the last one');
   mm.sessions['1-0'].exs[0].sets[0].done = false;
   eq(T.makeEx(mm, 2, 0, exId, 3).sets[0].w, 25, 'a first set with no result uses the best set'); }
+{ // Recalculate plan re-plans only unlogged sets of an already saved workout
+  T.S = T.seedState(); T.normalize();
+  const mm = { id: 'm4', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 4, template: 'x', style: 'test' };
+  T.S.mesos.push(mm); T.S.activeMeso = 'm4';
+  const exId = mm.days[0].items[0].exId, e = T.ex(exId); e.lo = 8; e.hi = 15; e.inc = 5; e.load = 'total'; e.bw = false;
+  mm.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', done: true, fb: {}, exs: [{ exId, side: false, bar: 0, planned: 3, base: 3,
+    sets: [{ w: 30, r: 11, done: true }, { w: 25, r: 11, done: true }, { w: 25, r: 11, done: true }] }] };
+  const old = { wk: 2, di: 0, key: '2-0', done: false, fb: {}, exs: [{ exId, side: false, bar: 0, planned: 4, base: 3,
+    sets: [{ w: 30, r: 10, pw: 30, pr: 10, done: true }, { w: 30, r: 10, pw: 30, pr: 10, done: false, ty: 'myo' }, { w: 30, r: 10, pw: 30, pr: 10, done: false }, { w: 30, r: 10, pw: 30, pr: 10, done: false }] }] };
+  mm.sessions['2-0'] = old;
+  const x = old.exs[0];
+  eq(T.replanEx(mm, old, x), 3, 'counts changed sets');
+  eq(x.sets.map(t => [t.w, t.r, t.pw, t.pr]), [[30, 10, 30, 10], [25, 10, 25, 10], [25, 10, 25, 10], [25, 10, 25, 10]], 'unlogged sets follow their own last result');
+  eq([x.sets.length, x.sets[1].ty, x.sets[0].done], [4, 'myo', true], 'keeps set count, types and logged sets');
+  eq(T.replanEx(mm, old, x), 0, 'a second run changes nothing');
+  x.side = true; x.bar = 0; x.sets[2].w = 99;
+  T.replanEx(mm, old, x); eq(x.sets[2].w, 12.5, 'converts into per-end entry'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',
