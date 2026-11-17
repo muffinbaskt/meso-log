@@ -19,6 +19,7 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 - Picker has a pinned "Create new exercise" button under the search (`.pkhead`, sticky). `pknew` opens exForm prefilled with the search text (and the muscle when replacing); saving runs `pickex` with the new id so it is added like a picked exercise. `ui.pickNew` is cleared by `closeSheet`, so cancelling never adds anything later.
 - Exercise menu → "Pump & volume" (`xfb`) reopens the muscle feedback (`postSheet(s,mu,true)`) with saved joint pain, pump and volume picked. Pump/volume are per muscle per workout (`s.fb[mu]`); they feed the next session’s set change when that session’s soreness is answered, so edits after that do not re-apply. Hidden in quick workouts.
 - Heart rate: Workout menu → Connect heart rate (only where Web Bluetooth exists: Chrome on Android/desktop, not iPhone). Standard Heart Rate Service (`heart_rate` / `heart_rate_measurement`); `parseHr` and `addHr` in block 1. Readings go into the open, unfinished workout as `s.hr` {n,sum,max,pts (one per 10 s),last}, committed at most every 15 s. Live chip `#hrchip` updates without re-render; finished workouts show Avg/peak. Tested only with a mocked device; Garmin watches need Broadcast Heart Rate turned on.
+- Rest timer: off by default. The timer button in the workout header (`restBtn`, highlighted when on) opens `restSheet`: on/off switch, −15/+15, presets, Test “Go”. Saved as `S.prefs.rest = {on, secs}` (synced with core). `toggleSet` calls `restStart` when a set is logged, but not in a finished workout or after the last set. The countdown pill `#restpill` sits above the tab bar (+15, stop), and `body.resting` adds bottom padding. The end is a clock time (`REST.end`) and a screen wake lock is held while it runs. At zero `restGo` flashes `.restflash` (skipped under reduced motion) and plays `goVoice`, a formant-synthesized "Go" in Web Audio, so it plays over music without pausing it. If the timer ended more than 5 s before the page noticed (screen off), there is no voice. Finishing a workout stops it.
 - Run locally: `npm run dev`, then open http://localhost:5173 (or just open `index.html`).
 
 ## Layout of the code
@@ -112,7 +113,7 @@ A mesocycle copies its template's days when it starts, so later template edits n
 3. The sample barbell exercises have a 5 lb step. With one-end entry that is a 10 lb total jump, so 2.5 is probably what he wants. Change it in `LIB` or in the exercise editor.
 4. Un-logging the only done set of a muscle does not undo the soreness-check reset made when it was logged.
 5. No notifications. A page cannot push. Standalone, the cleanest route is a service worker plus Web Push (Supabase edge function on a cron fits how Riggy works). Until then the check only appears when the app is opened.
-6. Not built: rest timer, exercise videos, editing a running mesocycle's days, mid-block template sync.
+6. Not built: exercise videos, editing a running mesocycle's days, mid-block template sync.
 8. Rules are untested against real training. Expect to tune the set deltas and the e1RM step logic after a week or two of use.
 9. No PWA bits yet: web manifest, icons, service worker (remember the service-worker caching gotcha from Riggy).
 

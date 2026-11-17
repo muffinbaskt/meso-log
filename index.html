@@ -273,6 +273,23 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .bars i.z{background:var(--line)}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;max-width:86%;text-align:center}
 .toast[hidden]{display:none}
+.restpill{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:4px;padding:4px 4px 4px 14px;border-radius:24px;background:var(--surface);border:1.5px solid var(--accent);box-shadow:0 6px 20px rgb(0 0 0/.25)}
+.restpill[hidden]{display:none}
+body.resting{padding-bottom:calc(132px + env(safe-area-inset-bottom,0px))}
+body.resting .toast{bottom:calc(136px + env(safe-area-inset-bottom,0px))}
+.restpill .rt{font-family:var(--font-display);font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--fg);min-width:58px;text-align:center;padding:0 6px}
+.restpill .rl{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.restpill button{min-width:40px;height:36px;border-radius:18px;font-weight:700;color:var(--fg);background:var(--surface2);display:grid;place-items:center;padding:0 8px}
+.restpill button svg{width:18px;height:18px}
+.restflash{position:fixed;inset:0;z-index:95;background:var(--ok);pointer-events:none;animation:rflash 1.4s ease-out forwards}
+@keyframes rflash{0%{opacity:.85}15%{opacity:.35}30%{opacity:.85}45%{opacity:.35}100%{opacity:0}}
+.ib.on{color:var(--accent);background:var(--accent-soft)}
+.rdur{display:flex;align-items:center;justify-content:center;gap:18px;margin:18px 0 8px}
+.rdur b{font-family:var(--font-display);font-size:44px;font-weight:800;font-variant-numeric:tabular-nums;min-width:120px;text-align:center}
+.rdur button{width:52px;height:52px;border-radius:50%;background:var(--surface2);font-size:18px;font-weight:700;color:var(--fg)}
+.rpre{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.rpre button{padding:8px 14px;border-radius:18px;background:var(--surface2);font-weight:700;color:var(--fg)}
+.rpre button.on{background:var(--accent);color:var(--accent-ink)}
 .ts:empty{display:none}.ts{margin:4px 0 12px;min-height:0}
 .signin{max-width:420px;margin:0 auto;padding:72px 20px 40px}
 .signin h1{font-size:40px;text-transform:uppercase;line-height:1;margin:0}
@@ -299,6 +316,7 @@ img{max-width:100%}
 <div id="app"><div class="splash">Loading your log</div></div>
 <div id="sheet" hidden></div>
 <div id="toast" class="toast" hidden></div>
+<div id="restpill" class="restpill" hidden><span class="rl">Rest</span><span class="rt" id="resttime">0:00</span><button data-act="restplus" aria-label="Add 15 seconds">+15</button><button data-act="reststop" aria-label="Stop rest timer" id="reststopb"></button></div>
 
 <script>
 /* ============================== DOMAIN LOGIC ============================== */
@@ -1112,6 +1130,7 @@ const SET_TY={
 };
 const ui={pf:blankFilter(),pkq:'',signin:false,sent:null,tab:'workout',sub:null,tpl:null,wk:1,di:0,tmp:null,q:'',pick:null,fb:null,chart:null};
 const I={
+ timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 1.5M9.5 2.5h5M12 2.5V6"/></svg>',
  heart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.4a4.3 4.3 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z"/></svg>',
  kebab:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h2M12 14h2M8 17h2M12 17h2" stroke-width="2.2"/></svg>',
@@ -1192,7 +1211,7 @@ function viewWorkout(){
   const m=meso();
   if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No mesocycle yet</h2><p>Pick a template and start a training block. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">Start a mesocycle</button><p style="margin-top:22px">Just want to try it out? Log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
   const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=isDl(m,ui.wk),c=sessCounts(s);
-  let h=m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div><button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div><button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
+  let h=m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div>'+restBtn()+'<button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div>'+restBtn()+'<button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
   h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">'+(s.skipped?'Skipped ':'Finished ')+esc(s.date||'')+'</span>':'')+(HR.dev&&!s.done?'<span class="chip hot" id="hrchip">♥ '+(HR.bpm??'–')+'</span>':'')+(s.hr&&s.hr.n?'<span class="chip">Avg ♥ '+hrAvg(s.hr)+' · peak '+s.hr.max+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
   let last=null,letter=0;
   const head=(x,ei,tag)=>{const e=ex(x.exId);
@@ -1395,6 +1414,7 @@ function toggleSet(ei,si){
     const dv=first?deriveSoreness(mu):null;
     const due0=s.exs.map((_,i)=>noteDue(s,i));
     t.done=true;if(!s.date)s.date=today();delete s.skipped;
+    if(!s.done&&s.exs.some(z=>z.sets.some(q=>!q.done)))restStart();else restStop();   // no rest after the last set
     if(si===0)matchTargets(x);
     if(first){trackWorked(mu);mark('core')}
     commit(s);render();
@@ -1515,6 +1535,57 @@ function exForm(e){
 // Saves the workout as done. With nothing logged it is marked skipped; logging a set later clears that.
 // Live heart rate (Chrome on Android/desktop; iPhone browsers have no Web Bluetooth). Readings go into the open workout
 // until it is finished, saved at most every 15 s. Connecting is manual each visit: browsers require a tap to pick the device.
+/* Rest timer. Off by default; turned on and set from the timer button in the workout header (S.prefs.rest = {on, secs}).
+   Logging a set starts it (not the last set of the workout, not in a finished workout). At 0 the screen flashes green
+   and a synthesized voice says "Go". Web Audio, like the fireworks, so it plays over music without pausing it.
+   The end time is a clock time, so a throttled tab still ends on time; a screen wake lock keeps the phone awake. */
+const REST={end:0,iv:null,ctx:null,wl:null};
+const restPrefs=()=>{const r=S.prefs.rest||{};return {on:!!r.on,secs:r.secs>0?r.secs:120}};
+const mmss=n=>Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
+function restBtn(){const r=restPrefs();return '<button class="ib'+(r.on?' on':'')+'" data-act="restopen" aria-label="Rest timer'+(r.on?' (on)':' (off)')+'">'+I.timer+'</button>'}
+function restAudio(){try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;if(!REST.ctx||REST.ctx.state==='closed')REST.ctx=new A();if(REST.ctx.state==='suspended')REST.ctx.resume();return REST.ctx}catch(e){return null}}
+function restStart(){
+  const r=restPrefs();if(!r.on)return;restAudio();   // inside the tap, so the browser lets it play later
+  REST.end=Date.now()+r.secs*1000;$('#restpill').hidden=false;document.body.classList.add('resting');$('#reststopb').innerHTML=I.x;
+  if(!REST.wl&&navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{REST.wl=w;w.addEventListener('release',()=>{if(REST.wl===w)REST.wl=null})}).catch(()=>{});
+  clearInterval(REST.iv);REST.iv=setInterval(restTick,250);restTick();
+}
+function restTick(){if(!REST.end)return;const left=REST.end-Date.now();
+  if(left<=0){const late=-left>5000;restStop();if(!late)restGo();return}
+  $('#resttime').textContent=mmss(Math.ceil(left/1000));
+  const el=$('#sheet .rleft');if(el)el.textContent=mmss(Math.ceil(left/1000));
+}
+function restStop(){clearInterval(REST.iv);REST.iv=null;REST.end=0;$('#restpill').hidden=true;document.body.classList.remove('resting');if(REST.wl){REST.wl.release().catch(()=>{});REST.wl=null}
+  const el=$('#sheet .rrun');if(el)el.hidden=true}
+function restGo(){
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){const f=document.createElement('div');f.className='restflash';document.body.appendChild(f);setTimeout(()=>f.remove(),1500)}
+  const a=restAudio();if(!a)return;
+  const c=a.createDynamicsCompressor(),o=a.createGain();o.gain.value=.9;o.connect(c);c.connect(a.destination);goVoice(a,o,a.currentTime+.02);
+}
+// Formant-synthesized "Go": a short velar burst, then a voiced "o" gliding toward "u" with a falling pitch.
+function goVoice(a,out,t){
+  const V=t+.025,E=V+.5,sr=a.sampleRate;
+  const src=a.createOscillator();src.type='sawtooth';src.frequency.setValueAtTime(150,V);src.frequency.linearRampToValueAtTime(128,V+.2);src.frequency.linearRampToValueAtTime(100,E);
+  const tilt=a.createBiquadFilter();tilt.type='lowpass';tilt.frequency.value=1400;tilt.Q.value=.5;src.connect(tilt);
+  const env=a.createGain();env.gain.setValueAtTime(0,V);env.gain.linearRampToValueAtTime(1,V+.03);env.gain.setValueAtTime(1,V+.3);env.gain.linearRampToValueAtTime(0,E);
+  const sum=a.createGain();sum.gain.value=1.6;sum.connect(env);env.connect(out);
+  const F=[[[300,0],[520,.07],[480,.26],[340,.5]],[[1650,0],[900,.08],[840,.26],[700,.5]],[[2200,0],[2500,.08],[2400,.5]]],Q=[5,9,16],G=[1,.55,.18];
+  F.forEach((pts,i)=>{const f=a.createBiquadFilter(),g=a.createGain();f.type='bandpass';f.Q.value=Q[i];g.gain.value=G[i]*Q[i]/5;
+    f.frequency.setValueAtTime(pts[0][0],V);for(const [hz,dt] of pts.slice(1))f.frequency.linearRampToValueAtTime(hz,V+dt);tilt.connect(f);f.connect(g);g.connect(sum)});
+  src.start(V);src.stop(E+.05);
+  const n=Math.floor(sr*.03),b=a.createBuffer(1,n,sr),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/(sr*.006));
+  const ns=a.createBufferSource(),nf=a.createBiquadFilter(),ng=a.createGain();ns.buffer=b;nf.type='bandpass';nf.frequency.value=1800;nf.Q.value=2.5;ng.gain.value=.35;
+  ns.connect(nf);nf.connect(ng);ng.connect(out);ns.start(t);
+}
+const REST_PRE=[60,90,120,150,180,240,300];
+function restSheet(){const r=restPrefs(),run=REST.end>Date.now();
+  sheet('<h2>Rest timer</h2>'
+   +'<button class="fsw'+(r.on?' on':'')+'" data-act="restonoff" role="switch" aria-checked="'+r.on+'"><span><b>Rest timer</b><small>Starts when you log a set. At zero the screen flashes green and a voice says “Go”.</small></span><i></i></button>'
+   +'<div class="rdur"><button data-act="restadj" data-v="-15" aria-label="15 seconds less">−15</button><b id="rsecs">'+mmss(r.secs)+'</b><button data-act="restadj" data-v="15" aria-label="15 seconds more">+15</button></div>'
+   +'<div class="rpre">'+REST_PRE.map(v=>'<button class="'+(v===r.secs?'on':'')+'" data-act="restset" data-v="'+v+'">'+mmss(v)+'</button>').join('')+'</div>'
+   +'<div class="rrun"'+(run?'':' hidden')+' style="text-align:center;margin-top:16px;color:var(--muted)">Resting now: <b class="rleft" style="color:var(--fg)">'+mmss(Math.max(0,Math.ceil((REST.end-Date.now())/1000)))+'</b> left</div>'
+   +'<div class="foot"><button class="btn" data-act="resttest">Test “Go”</button>'+(run?'<button class="btn" data-act="reststop">Stop timer</button>':'')+'<button class="btn pri" data-act="close">Done</button></div>')}
+function restSave(r){S.prefs.rest=r;mark('core')}
 const HR={dev:null,bpm:null,saved:0};
 const hrOK=()=>!!(navigator.bluetooth&&navigator.bluetooth.requestDevice);
 async function hrConnect(){
@@ -1588,7 +1659,7 @@ function fireworks(){
     x.globalAlpha=1;
     if(t<END||R.some(r=>r.up)||P.some(q=>q.l>0))requestAnimationFrame(frame);else{c.remove();snd&&snd.close()}})(t0);
 }
-function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
+function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;restStop();s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
 
 /* ---------- action handlers ---------- */
@@ -1709,11 +1780,18 @@ cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" 
 goto(el){ui.wk=+el.dataset.wk;ui.di=+el.dataset.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0)},
 hron(){closeSheet();hrConnect()},   // still inside the tap, which the device picker requires
 hroff(){closeSheet();hrStop()},
+restopen(){restSheet()},
+restonoff(el){const r=restPrefs();r.on=!r.on;restSave(r);el.classList.toggle('on',r.on);el.setAttribute('aria-checked',r.on);if(!r.on)restStop();render()},
+restadj(el){const r=restPrefs();r.secs=Math.max(15,Math.min(900,r.secs+ +el.dataset.v));restSave(r);restSheet()},
+restset(el){const r=restPrefs();r.secs=+el.dataset.v;restSave(r);restSheet()},
+resttest(){restAudio();restGo()},
+reststop(){restStop();if(!$('#sheet').hidden&&$('#sheet .rdur'))restSheet()},
+restplus(){if(REST.end)REST.end+=15000;restTick()},
 sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(curSession().done?'':'<button class="li" data-act="finish">'+I.check+'Finish workout</button>')+'<button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(hrOK()?'<button class="li" data-act="'+(HR.dev?'hroff':'hron')+'">'+I.heart+(HR.dev?'Disconnect heart rate':'Connect heart rate')+'</button>':'')+'<button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="delmeso" data-id="'+meso().id+'">'+I.trash+'Discard workout</button></div>');return}
   sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(hrOK()?'<button class="li" data-act="'+(HR.dev?'hroff':'hron')+'">'+I.heart+(HR.dev?'Disconnect heart rate':'Connect heart rate')+'</button>':'')+'<button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();
   if(m.quick){if(!sessCounts(s).d){ACT.dodelmeso({dataset:{id:m.id}});toast('Nothing logged, so nothing saved');return}
-    s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');fireworks();return}
+    restStop();s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');fireworks();return}
   if(!sessCounts(s).d){sheet('<h2>Skip this workout?</h2><p style="color:var(--muted)">Nothing is logged yet. It will show as skipped in the calendar and nothing goes into your history. Next week’s weights and sets carry on from the last time you trained.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="doskip">Skip workout</button></div>');return}
   saveDone(false)},
 doskip(){saveDone(true)},
