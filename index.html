@@ -275,6 +275,8 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .toast[hidden]{display:none}
 .restpill{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:4px;padding:4px 4px 4px 14px;border-radius:24px;background:var(--surface);border:1.5px solid var(--accent);box-shadow:0 6px 20px rgb(0 0 0/.25)}
 .restpill[hidden]{display:none}
+.updbar{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:70;padding:10px 18px;border-radius:22px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;box-shadow:0 6px 20px rgb(0 0 0/.3);white-space:nowrap}
+.updbar[hidden]{display:none}
 body.resting{padding-bottom:calc(132px + env(safe-area-inset-bottom,0px))}
 body.resting .toast{bottom:calc(136px + env(safe-area-inset-bottom,0px))}
 .restpill .rt{font-family:var(--font-display);font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--fg);min-width:58px;text-align:center;padding:0 6px}
@@ -323,6 +325,7 @@ img{max-width:100%}
 <div id="app"><div class="splash">Loading your log</div></div>
 <div id="sheet" hidden></div>
 <div id="toast" class="toast" hidden></div>
+<button id="updbar" class="updbar" data-act="update" hidden>New version · tap to update</button>
 <div id="restpill" class="restpill" hidden><span class="rl">Rest</span><span class="rt" id="resttime">0:00</span><button data-act="restplus" aria-label="Add 15 seconds">+15</button><button data-act="reststop" aria-label="Stop rest timer" id="reststopb"></button></div>
 
 <script>
@@ -1621,6 +1624,18 @@ function restSheet(){const r=restPrefs(),run=REST.end>Date.now();
 function restSave(r){S.prefs.rest=r;mark('core')}
 /* Behind the scenes: a secret menu for the owner. Tap the "More" heading 7 times to turn it on or off (this device only).
    Adds "Behind the scenes" to the workout menu: why each muscle got its set change and where each number came from. */
+/* Update check. When the app opens or comes back to the screen, it asks the server (past every cache) when the page
+   last changed and compares that with this copy's own Last-Modified (document.lastModified). Newer by over a minute
+   shows the update button, which saves pending changes and reloads. At most once a minute. No header = no check. */
+let updLast=0;
+function updCheck(){
+  if(Date.now()-updLast<60000||!/^https?:/.test(location.protocol))return;updLast=Date.now();
+  const mine=Date.parse(document.lastModified);
+  fetch(location.pathname+'?rev='+Date.now(),{method:'HEAD',cache:'no-store'}).then(r=>{
+    const lm=Date.parse(r.headers.get('last-modified')||'');if(r.ok&&lm&&mine&&lm-mine>60000)$('#updbar').hidden=false}).catch(()=>{});
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')updCheck()});
+setTimeout(updCheck,4000);
 const NERD_KEY='meso-log-nerd';
 const nerdOn=()=>{try{return localStorage.getItem(NERD_KEY)==='1'}catch(e){return false}};
 const sref=(r,m)=>r?'W'+r.wk+' D'+(r.di+1)+(r.day?' '+esc(r.day):'')+(r.date?' ('+esc(r.date)+')':'')+(m&&r.meso&&r.meso!==m.name?' in '+esc(r.meso):''):'';
@@ -1862,6 +1877,7 @@ nerdtap(){const n=Date.now();ui.nt=(ui.nt&&n-ui.ntl<1500?ui.nt:0)+1;ui.ntl=n;if(
   const on=!nerdOn();try{on?localStorage.setItem(NERD_KEY,'1'):localStorage.removeItem(NERD_KEY)}catch(e){}
   toast(on?'Behind the scenes unlocked: find it in the workout menu':'Behind the scenes hidden')},
 nerd(){nerdSheet()},
+update(el){el.disabled=true;el.textContent='Updating…';Promise.race([flush(),new Promise(r=>setTimeout(r,2500))]).finally(()=>location.reload())},
 sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(curSession().done?'':'<button class="li" data-act="finish">'+I.check+'Finish workout</button>')+'<button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(hrOK()?'<button class="li" data-act="'+(HR.dev?'hroff':'hron')+'">'+I.heart+(HR.dev?'Disconnect heart rate':'Connect heart rate')+'</button>':'')+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="delmeso" data-id="'+meso().id+'">'+I.trash+'Discard workout</button></div>');return}
   sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(hrOK()?'<button class="li" data-act="'+(HR.dev?'hroff':'hron')+'">'+I.heart+(HR.dev?'Disconnect heart rate':'Connect heart rate')+'</button>':'')+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();
