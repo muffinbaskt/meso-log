@@ -218,6 +218,19 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   eq(T.replanEx(mm, old, x), 0, 'a second run changes nothing');
   x.side = true; x.bar = 0; x.sets[2].w = 99;
   T.replanEx(mm, old, x); eq(x.sets[2].w, 12.5, 'converts into per-end entry'); }
+{ // per-set plans still follow bodyweight: added weight keeps the total load, bodyweight-only reps use the new bodyweight
+  T.S = T.seedState(); T.normalize(); T.S.prefs.bw = 180;
+  const mm = { id: 'm5', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 5, template: 'x' };
+  T.S.mesos.push(mm); T.S.activeMeso = 'm5';
+  const exId = mm.days[0].items[0].exId, e = T.ex(exId); Object.assign(e, { lo: 5, hi: 15, inc: 5, bw: true, plus: true });
+  mm.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', done: true, fb: {}, exs: [{ exId, plus: true, abw: 180, side: false, bar: 0, planned: 2, base: 2,
+    sets: [{ w: 45, r: 10, done: true }, { w: 25, r: 10, done: true }] }] };
+  T.S.prefs.bw = 190;
+  eq(T.makeEx(mm, 2, 0, exId, 2).sets.map(t => t.w), [35, 15], 'heavier: each set\'s added weight drops to keep its total');
+  e.plus = false; const x = mm.sessions['1-0'].exs[0]; delete x.plus; x.bwo = true; x.sets[0].w = 180; x.sets[1].w = 180; x.sets[1].r = 8;
+  const b = T.makeEx(mm, 2, 0, exId, 2);
+  eq(b.sets.map(t => t.w), [190, 190], 'bodyweight-only sets use the new bodyweight');
+  eq(b.sets[0].r > b.sets[1].r, true, 'and keep their own rep drop-off'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',
