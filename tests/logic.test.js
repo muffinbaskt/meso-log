@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx
 };`);
 
 let ok = 0, bad = 0;
@@ -258,6 +258,24 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   eq([q.w, q.r], [fresh[1].w, fresh[1].r], 'set 2 is planned from last time\'s set 2');
   eq(q.r < x.sets[0].pr, true, 'so it is not a copy of set 1');
   eq(T.planSet(mm, s, x, 5).r, fresh[2].r, 'past last time\'s sets it follows the last one'); }
+{ // behind the scenes: explanations match what the rules did
+  T.S = T.seedState(); T.normalize();
+  const mm = { id: 'm7', name: 't', weeks: 5, start: '2026-10-26', days: JSON.parse(JSON.stringify(UL)), sessions: {}, created: 7, template: 'x', style: 'test', prio: {} };
+  T.S.mesos.push(mm); T.S.activeMeso = 'm7';
+  const exId = mm.days[0].items[0].exId, e = T.ex(exId), mu = e.muscle; Object.assign(e, { lo: 8, hi: 15, inc: 5, bw: false, load: 'total' });
+  mm.sessions['1-0'] = { wk: 1, di: 0, key: '1-0', done: true, date: '2026-11-10', fb: { [mu]: { sor: 1, pump: 0, vol: 0 } }, exs: [{ exId, side: false, bar: 0, planned: 3, base: 3,
+    sets: [{ w: 30, r: 11, done: true }, { w: 25, r: 11, done: true }, { w: 25, r: 11, done: true }] }] };
+  const s = T.buildSession(mm, 2, 0); s.fb[mu] = { sor: 0, auto: true }; T.applyMuscle(mm, s, mu);
+  const em = T.explainMuscle(mm, s, mu);
+  eq(em.parts.map(p => [p.k, p.v]), [['sor', 2], ['vol', 1], ['pump', 1], ['clamp', -1]], 'parts: soreness, volume, low pump, cap');
+  eq([em.total, em.applied], [3, 3], 'total matches what was applied');
+  eq([em.auto, em.prev.date], [true, '2026-11-10'], 'source and last workout');
+  mm.prio[mu] = 'maint'; s.fb[mu] = { sor: 3 }; eq(T.explainMuscle(mm, s, mu).total, T.prioDelta(T.setDelta(3, 0, 0), 'maint', 3, 0), 'priority step matches prioDelta');
+  const x = s.exs.find(z => z.exId === exId), ee = T.explainEx(mm, s, x);
+  eq([ee.from.wk, ee.from.date, ee.best.rir], [1, '2026-11-10', 0.5], 'numbers come from last time');
+  eq(ee.sets.slice(0, 3).map(q => [q.j, q.plan.w, q.plan.r]), [[0, 30, 10], [1, 25, 10], [2, 25, 10]], 'each set shows its source and plan');
+  eq(ee.sets[4].j, 2, 'extra sets show they follow the last set');
+  eq([T.srcIdx([null, {}, null], 2), T.srcIdx([null], 0)], [1, -1], 'srcIdx finds the nearest earlier result'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',
