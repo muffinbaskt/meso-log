@@ -231,6 +231,19 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   const b = T.makeEx(mm, 2, 0, exId, 2);
   eq(b.sets.map(t => t.w), [190, 190], 'bodyweight-only sets use the new bodyweight');
   eq(b.sets[0].r > b.sets[1].r, true, 'and keep their own rep drop-off'); }
+{ // bodyweight-only reps follow a bodyweight change, without drifting
+  T.S = T.seedState(); T.normalize();
+  const pu = T.S.exercises.find(e => e.bw && !e.plus && !e.assist);
+  const s = { exs: [{ exId: pu.id, bwo: true, abw: 215, sets: [{ w: 215, r: 10, pw: 215, pr: 10, done: true }, { w: 215, r: 10, pw: 215, pr: 10 }, { w: 215, r: 7, pw: 215, pr: 8 }] }] };
+  T.setBodyweight(s, 230, 2);
+  const x = s.exs[0];
+  eq(x.sets[1].w, 230, 'weight follows bodyweight');
+  eq([x.sets[1].r, x.sets[1].pr], [7, 7], 'heavier means fewer reps (215x10 at 2 RIR -> 7 at 230)');
+  eq([x.sets[2].r, x.sets[2].pr], [7, 5], 'reps typed over are kept, the plan still moves');
+  eq([x.sets[0].w, x.sets[0].r], [215, 10], 'logged sets are untouched');
+  T.setBodyweight(s, 220, 2); T.setBodyweight(s, 215, 2);
+  eq(x.sets[1].pr, 10, 'changing back restores the original reps');
+  T.setBodyweight(s, 230, null); eq([x.sets[1].w, x.sets[1].pr], [230, 10], 'deload (no RIR) changes the weight only'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',

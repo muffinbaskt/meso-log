@@ -803,7 +803,7 @@ function distribute(bases,delta){
 }
 function resize(x,n){
   const done=x.sets.filter(t=>t.done).length;n=Math.max(n,done);
-  while(x.sets.length<n){const l=x.sets[x.sets.length-1]||{w:null,r:10,pw:null,pr:10};x.sets.push(withType({w:l.pw??l.w,r:l.pr??l.r,pw:l.pw??l.w,pr:l.pr??l.r,done:false},l.ty))}
+  while(x.sets.length<n){const l=x.sets[x.sets.length-1]||{w:null,r:10,pw:null,pr:10};x.sets.push(withType({w:l.pw??l.w,r:l.pr??l.r,pw:l.pw??l.w,pr:l.pr??l.r,done:false,...(l.pr0!=null?{pr0:l.pr0}:{})},l.ty))}
   while(x.sets.length>n){let i=-1;for(let k=x.sets.length-1;k>=0;k--)if(!x.sets[k].done){i=k;break}if(i<0)break;x.sets.splice(i,1)}
   x.planned=n;
 }
@@ -836,12 +836,13 @@ function makeEx(m,wk,di,exId,tplSets){
 function replanEx(m,s,x){
   if(x.ivl)return 0;
   const f=makeEx(m,s.wk,s.di,x.exId,x.sets.length);if(!f.sets.length)return 0;
+  if(f.abw!=null){x.abw=f.abw;delete x.pbw}   // the fresh plan is at the latest bodyweight
   const toEntered=T=>x.assist?(x.abw||0)-T:x.plus?T-(x.abw||0):x.side?(T-(x.bar||0))/2:T;
   let n=0;
   x.sets.forEach((t,i)=>{if(t.done)return;const q=f.sets[Math.min(i,f.sets.length-1)];
     const w=q.w==null?null:Math.round(toEntered(totOf(f,q.w))*4)/4;
     if(t.w!==w||t.r!==q.r||t.pw!==w||t.pr!==q.r)n++;
-    t.w=w;t.r=q.r;t.pw=w;t.pr=q.r});
+    t.w=w;t.r=q.r;t.pw=w;t.pr=q.r;delete t.pr0});
   if(f.swap)x.swap=true;
   return n;
 }
@@ -915,9 +916,18 @@ function noteDue(s,ei){const x=s.exs[ei];if(!x||!hasNote(x)||x.noteSeen)return f
 const usesBw=s=>!!s&&s.exs.some(x=>x.abw!=null);
 // A new bodyweight keeps each unlogged set's total load: bodyweight-only sets take the new weight, added weight shrinks
 // when you are heavier, assistance grows. Added weight and assistance round to the exercise's step and never go below 0.
-function setBodyweight(s,v){
-  for(const x of s.exs){if(x.abw==null)continue;const d=v-x.abw,inc=(ex(x.exId)||{}).inc||5;x.abw=v;
-    if(x.bwo){for(const t of x.sets)if(!t.done){t.w=v;t.pw=v}continue}   // bodyweight-only weight is locked to bodyweight
+// Bodyweight-only reps follow too when rir (the session's target RIR) is given: each unlogged set keeps its estimated
+// 1RM, so heavier means fewer reps. Worked from the reps first planned (pr0) at the bodyweight they were planned for
+// (pbw), so changing it back and forth never drifts. Reps the user typed over are left alone. No rir (deload) = weight only.
+function setBodyweight(s,v,rir){
+  for(const x of s.exs){if(x.abw==null)continue;const d=v-x.abw,inc=(ex(x.exId)||{}).inc||5;
+    if(x.bwo){if(x.pbw==null)x.pbw=x.abw;x.abw=v;
+      for(const t of x.sets){if(t.done)continue;
+        if(rir!=null&&t.pr!=null&&x.pbw>0){if(t.pr0==null)t.pr0=t.pr;
+          const nr=Math.max(1,Math.round((x.pbw*(1+(t.pr0+rir)/30)/v-1)*30-rir+1e-9));if(t.r===t.pr)t.r=nr;t.pr=nr}
+        t.w=v;t.pw=v}
+      continue}   // bodyweight-only weight is locked to bodyweight
+    x.abw=v;
     if(!d)continue;
     const adj=w=>w==null?w:Math.max(0,roundTo(x.plus?w-d:w+d,inc));
     for(const t of x.sets){if(t.done)continue;
@@ -1604,7 +1614,7 @@ log(el){const c=ctx(el);toggleSet(c.ei,c.si)},
 bwday(){bwSheet(false)},
 bwsame(){const s=curSession();s.bwAsked=true;commit(s);closeSheet();render()},
 bwdaysave(){const v=num($('#f_bwd').value);if(!(v>0)){toast('Enter a number');return}
-  const s=curSession();S.prefs.bw=v;setBodyweight(s,v);s.bwAsked=true;commit(s);mark('core');closeSheet();render()},
+  const s=curSession(),m=meso();S.prefs.bw=v;setBodyweight(s,v,isDl(m,s.wk)?null:rirFor(m,s.wk));s.bwAsked=true;commit(s);mark('core');closeSheet();render()},
 bwedit(){sheet('<h2>Bodyweight</h2><div class="field"><label for="f_bw">Bodyweight ('+unit()+')</label><input id="f_bw" class="in" inputmode="decimal" value="'+fmt(S.prefs.bw)+'"></div><p style="color:var(--muted)">Used to prefill bodyweight exercises in sessions you have not opened yet.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="bwsave">Save</button></div>')},
 bwsave(){const v=num($('#f_bw').value);if(v>0){S.prefs.bw=v;mark('core');closeSheet();render()}else toast('Enter a number')},
 /* feedback */
@@ -1648,7 +1658,7 @@ formset(el){const s=curSession(),x=s.exs[ui.formEi];if(x){x.form=+el.dataset.v;c
 xform(){askForm(ui.ei)},
 xfb(){const s=curSession(),x=s.exs[ui.ei];postSheet(s,muscleOf(x),true)},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
-xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
+xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1];x.sets.push(withType({w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false,...(l&&l.pr0!=null?{pr0:l.pr0}:{})},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xreplan(){const s=curSession(),m=meso(),x=s.exs[ui.ei],n=replanEx(m,s,x);matchTargets(x);if(n)commit(s);closeSheet();render();toast(n?'Plan recalculated: '+n+' set'+(n>1?'s':'')+' changed':'Plan is already up to date')},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
 xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
