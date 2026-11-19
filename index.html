@@ -879,7 +879,7 @@ function replanEx(m,s,x){
   let n=0;
   x.sets.forEach((t,i)=>{if(t.done)return;const q=planSet(m,s,x,i,f);
     if(t.w!==q.w||t.r!==q.r||t.pw!==q.w||t.pr!==q.r)n++;
-    t.w=q.w;t.r=q.r;t.pw=q.w;t.pr=q.r;delete t.pr0;delete t.pb});
+    t.w=q.w;t.r=q.r;t.pw=q.w;t.pr=q.r;delete t.pr0;delete t.pb;delete t.pe1});
   if(f.swap)x.swap=true;
   return n;
 }
@@ -906,6 +906,17 @@ function explainEx(m,s,x){
   x.sets.forEach((q,i)=>{const j=srcIdx(a,i),src=j<0?{tot:lp.tot,r:lp.r}:a[j],e1=src.tot*(1+(src.r+lp.rir)/30),pl=planLoad(e,{tot:src.tot,r:src.r,rir:lp.rir},t,dl,mode);
     out.sets.push({i,j,src,e1:Math.round(e1*10)/10,plan:pl,pw:q.pw,pr:q.pr,done:!!q.done,w:q.w,r:q.r})});
   return out;
+}
+/* Weight typed over on an unlogged set: re-plan its reps so the set keeps the planned estimated max at the new weight
+   (lighter = more reps). Works from the first planned est. max (pe1), so repeated edits never drift. Only when the reps
+   are still the planned ones (not typed over); never for bodyweight-only, intervals, or without a planned weight or a
+   target (deload passes none). The planned weight and reps move with it, so the up/down icon compares like with like.
+   Reps stop at hi (top of the rep range): the formula overshoots a lot at high reps. Returns true when the set changed. */
+function reweigh(x,t,w,rir,hi){
+  if(t.done||rir==null||x.bwo||x.ivl||t.pw==null||!(t.pr>0)||t.r!==t.pr||!(w>0||((x.plus||x.assist)&&w===0)))return false;
+  if(t.pe1==null){const T0=totOf(x,t.pw);if(!(T0>0))return false;t.pe1=T0*(1+(t.pr+rir)/30)}
+  const T=totOf(x,w);if(!(T>0))return false;
+  const r=Math.max(1,Math.min(hi>0?hi:Infinity,Math.round((t.pe1/T-1)*30-rir+1e-9)));t.pw=w;t.pr=r;t.r=r;return true;
 }
 /* Set types: none = regular, 'myo' = myorep (mini-sets, log total reps), 'match' = myorep match (target = set 1's reps). */
 function withType(t,ty){if(ty==='myo'||ty==='match')t.ty=ty;return t}
@@ -1998,7 +2009,9 @@ document.addEventListener('change',e=>{
   if(k==='setw'||k==='setr'){
     const c=ctx(el),s=curSession(),x=s.exs[c.ei],t=x.sets[c.si],v=num(el.value);
     const rows=document.querySelectorAll('.ex[data-ei="'+c.ei+'"] .set');
-    if(k==='setw'){const old=t.w;t.w=v;if(v>0)for(let j=c.si+1;j<x.sets.length;j++){const u=x.sets[j];if(!u.done&&(u.w==null||u.w===old)){u.w=v;const inp=rows[j]&&rows[j].querySelector('[data-chg="setw"]');if(inp)inp.value=fmt(v)}}}
+    if(k==='setw'){const old=t.w,m=meso(),rir=m.quick||isDl(m,s.wk)?null:rirFor(m,s.wk),ch=[c.si];t.w=v;
+      if(v>0)for(let j=c.si+1;j<x.sets.length;j++){const u=x.sets[j];if(!u.done&&(u.w==null||u.w===old)){u.w=v;ch.push(j);const inp=rows[j]&&rows[j].querySelector('[data-chg="setw"]');if(inp)inp.value=fmt(v)}}
+      const hi=(ex(x.exId)||{}).hi;for(const j of ch){const u=x.sets[j];if(reweigh(x,u,u.w,rir,hi)){const inp=rows[j]&&rows[j].querySelector('[data-chg="setr"]');if(inp){inp.value=fmt(u.r);inp.classList.add('dim')}}}}
     else{t.r=v;}
     if(t.done&&!(t.w>0&&t.r>0)){t.done=false;el.closest('.set').classList.remove('done')}
     if(c.si===0)matchTargets(x).forEach(j=>{const inp=rows[j]&&rows[j].querySelector('[data-chg="setr"]');if(inp)inp.value=fmt(x.sets[j].r)});

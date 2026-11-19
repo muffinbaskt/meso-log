@@ -8,7 +8,7 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 
 - Built in a Claude chat as a published artifact (v2), then packaged here. `index.html` is now the source of truth.
 - Smoke tested at 390 px in light and dark with Playwright on 2026-10-29 (every tab and sheet, no console errors). Not yet used for real workouts: the owner is testing it over several weeks before inviting anyone.
-- Logic is covered by `tests/logic.test.js` (255 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
+- Logic is covered by `tests/logic.test.js` (266 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
 - Exercise picker has a Filter sheet (logged only, muscle, equipment, built-in vs mine). Choices within a part widen, parts narrow; logic is `filterEx` in block 1. Filters stay in `ui.pf` for the visit. The picker panel is `.panel.tall` (fixed height) so short results stay above the phone keyboard.
 - Adding or removing an exercise in a planned workout asks "Just today" or "Rest of mesocycle", like Replace (`addgo`, `rmgo`; `removeItem` in block 1). Rest updates `m.days[di].items` and rebuilds later unstarted sessions of that day (`dropUntouched`). Blank and quick mesos skip the question.
 - Form check: when the last set of an exercise is ticked and `x.form` is unset, `askForm` asks Poor / Acceptable / Good / Don’t care (0–3). Muscle feedback waits in `ui.pq` until it closes. Shown in exercise history (`formTag`), editable from the exercise menu (Form). Recorded only; does not affect weights or sets.
@@ -35,7 +35,7 @@ Everything is in `index.html`: CSS in `<style>`, then three `<script>` blocks.
 Conventions worth keeping:
 - Tokens are CSS custom properties on `:root`, dark first, light via `prefers-color-scheme` and `data-theme`. Never use literal colors in components.
 - Muscle badges take a hue from `MUSCLES[].hue` via `--h`.
-- Weight and rep inputs write on `change` and do not re-render, so the keyboard stays open. The log button re-renders.
+- Weight and rep inputs write on `change` and do not re-render, so the keyboard stays open. Typing a new weight on an unlogged set (and on the later sets it cascades to) calls `reweigh` (block 1). It re-plans reps to keep the planned est. max (`t.pe1`, so repeated edits don't drift), capped at the top of the rep range, and moves `pw`/`pr` with it. It is skipped when reps were typed over, for bodyweight-only exercises, in deload and in quick workouts. The log button re-renders.
 - `curSession()` builds the visible session lazily into `ui.tmp`. It is only stored in `meso.sessions` on the first `commit(s)`.
 - Safe-area insets are handled in CSS (`env(safe-area-inset-*)`), the tab bar is fixed to the bottom.
 

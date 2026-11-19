@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx, reweigh
 };`);
 
 let ok = 0, bad = 0;
@@ -276,6 +276,21 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
   eq(ee.sets.slice(0, 3).map(q => [q.j, q.plan.w, q.plan.r]), [[0, 30, 10], [1, 25, 10], [2, 25, 10]], 'each set shows its source and plan');
   eq(ee.sets[4].j, 2, 'extra sets show they follow the last set');
   eq([T.srcIdx([null, {}, null], 2), T.srcIdx([null], 0)], [1, -1], 'srcIdx finds the nearest earlier result'); }
+{ // typing a new weight re-plans the reps at the same estimated max
+  const x = { side: false, bar: 0 }, t = { w: 60, r: 10, pw: 60, pr: 10 };
+  eq(T.reweigh(x, t, 55, 2, 15), true, 'changes the set');
+  eq([t.w, t.pw, t.r, t.pr], [60, 55, 14, 14], 'lighter: 60x10 at 2 RIR -> 55x14 (the weight input itself is set by the caller)');
+  T.reweigh(x, t, 45, 2, 15); eq(t.r, 15, 'stops at the top of the rep range (formula says 24)');
+  T.reweigh(x, t, 65, 2, 15); eq(t.r, 7, 'heavier: fewer reps (65x7)');
+  T.reweigh(x, t, 60, 2, 15); eq(t.r, 10, 'going back restores the planned reps, no drift');
+  const typed = { w: 60, r: 8, pw: 60, pr: 10 }; eq(T.reweigh(x, typed, 45, 2), false, 'reps typed over are left alone');
+  eq(T.reweigh(x, { w: 60, r: 10, pw: 60, pr: 10, done: true }, 45, 2), false, 'logged sets are left alone');
+  eq(T.reweigh(x, { w: 60, r: 10, pw: 60, pr: 10 }, 45, null), false, 'no target (deload) = weight only');
+  eq(T.reweigh({ bwo: true, abw: 200 }, { w: 200, r: 10, pw: 200, pr: 10 }, 210, 2), false, 'bodyweight-only is handled by the bodyweight box');
+  const sd = { side: true, bar: 45 }, u = { w: 45, r: 10, pw: 45, pr: 10 }; T.reweigh(sd, u, 35, 2);
+  eq(u.r, 17, 'per-end entry works on the total (135x10 -> 115x17)');
+  const pl = { plus: true, abw: 200 }, q = { w: 25, r: 8, pw: 25, pr: 8 }; T.reweigh(pl, q, 0, 2);
+  eq(q.r, 13, 'added weight down to 0 still re-plans on the total (225x8 -> 200x13)'); }
 // ---- lb / kg conversion ----
 { const mk = () => ({ v: 1, prefs: { unit: 'lb', bw: 180, bar: 45, barLoad: 'side' },
     exercises: [{ id: 'a', inc: 5, bar: 35 }, { id: 'b', inc: 2.5 }, { id: 'c', inc: 5, bar: 50 }], templates: [], track: {}, activeMeso: 'm',
