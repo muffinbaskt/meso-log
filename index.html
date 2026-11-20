@@ -1026,7 +1026,7 @@ function exHistory(exId){
     const done=x.sets.filter(t=>t.done&&t.w>0&&t.r>0);if(!done.length)continue;
     const T=t=>totOf(x,t.w);
     let best=done[0];for(const t of done)if(e1rm(T(t),t.r)>e1rm(T(best),best.r))best=t;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,form:x.form,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,di:s.di,day:((m.days||[])[s.di]||{}).name||'',form:x.form,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
   }
   return out.sort((a,b)=>a.k-b.k);
 }
@@ -1414,11 +1414,13 @@ function bindChart(){
 function chartPts(exId){
   return exHistory(exId).map(h=>({x:h.date.slice(5).replace('-','/'),y:Math.round(h.e1*10)/10,tip:h.date.slice(5).replace('-','/')+' · est. max '+Math.round(h.e1)+' '+unit()+' · best set '+fmt(h.top.w)+(h.top.side?'/end ('+fmt(h.top.tot)+' total)':'')+' × '+h.top.r}));
 }
+/* " · day 2", plus the day's own name when it isn't just "Day 2" (" · day 2 · Pull"). */
+const histDay=r=>r.di==null?'':' · day '+(r.di+1)+(r.day&&r.day.toLowerCase()!=='day '+(r.di+1)?' · '+r.day:'');
 function ivlHist(exId){
   const out=[];for(const m of S.mesos)for(const s of Object.values(m.sessions)){const x=s.exs.find(e=>e.exId===exId&&e.ivl);if(!x||!x.sets.some(t=>t.done))continue;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,form:x.form,sets:x.sets})}
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,di:s.di,day:((m.days||[])[s.di]||{}).name||'',form:x.form,sets:x.sets})}
   out.sort((a,b)=>b.k-a.k);
-  sheet('<h2>'+esc(ex(exId).name)+'</h2>'+(out.length?'<div class="hist">'+out.slice(0,8).map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>t.done?t.r:'–').join(' · ')+' = '+r.sets.reduce((a,t)=>a+(t.done?t.r:0),0)+' reps</div></div>').join('')+'</div>':'<div class="empty">No rounds logged yet.</div>'));
+  sheet('<h2>'+esc(ex(exId).name)+'</h2>'+(out.length?'<div class="hist">'+out.slice(0,8).map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk+histDay(r))+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>t.done?t.r:'–').join(' · ')+' = '+r.sets.reduce((a,t)=>a+(t.done?t.r:0),0)+' reps</div></div>').join('')+'</div>':'<div class="empty">No rounds logged yet.</div>'));
 }
 function viewProgress(){
   const m=meso(),used=S.exercises.filter(e=>exHistory(e.id).length);
@@ -1868,7 +1870,7 @@ stype(el){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si],v=el.dataset.v;del
 sdup(){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si];x.sets.splice(ui.si+1,0,withType({w:t.w,r:t.r,pw:t.pw,pr:t.pr,done:false},t.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 srm(){const s=curSession(),x=s.exs[ui.ei];x.sets.splice(ui.si,1);x.planned=x.sets.length;if(!x.sets.length)s.exs.splice(ui.ei,1);commit(s);closeSheet();render()},
 exhist(el){const x=curSession().exs[ctx(el).ei];if(x.ivl){ivlHist(x.exId);return}const h=exHistory(x.exId).reverse().slice(0,8);
-  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk)+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
+  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk+histDay(r))+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
 exchart(el){const x=curSession().exs[ctx(el).ei];ui.chart=null;const c=lineChart(chartPts(x.exId));sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+c+'<p style="color:var(--muted);font-size:14px">Estimated one-rep max from your best set each session, in '+unit()+'. Touch the line for details.</p>');bindChart()},
 /* session */
 cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" style="--n:'+n+'">';
