@@ -275,6 +275,8 @@ textarea.in{height:auto;min-height:90px;padding:10px 12px}
 .toast[hidden]{display:none}
 .restpill{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:4px;padding:4px 4px 4px 14px;border-radius:24px;background:var(--surface);border:1.5px solid var(--accent);box-shadow:0 6px 20px rgb(0 0 0/.25)}
 .restpill[hidden]{display:none}
+.restpill{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:box-shadow .15s,scale .15s}
+.restpill.drag{scale:1.08;box-shadow:0 12px 32px rgb(0 0 0/.4);transition:none}
 .updbar{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:70;padding:10px 18px;border-radius:22px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;box-shadow:0 6px 20px rgb(0 0 0/.3);white-space:nowrap}
 .updbar[hidden]{display:none}
 body.resting{padding-bottom:calc(132px + env(safe-area-inset-bottom,0px))}
@@ -1595,7 +1597,7 @@ function restBtn(){const r=restPrefs();return '<button class="ib'+(r.on?' on':''
 function restAudio(){try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;if(!REST.ctx||REST.ctx.state==='closed')REST.ctx=new A();if(REST.ctx.state==='suspended')REST.ctx.resume();return REST.ctx}catch(e){return null}}
 function restStart(){
   const r=restPrefs();if(!r.on)return;restAudio();   // inside the tap, so the browser lets it play later
-  REST.end=Date.now()+r.secs*1000;REST.said=r.secs<=20;$('#restpill').hidden=false;document.body.classList.add('resting');$('#reststopb').innerHTML=I.x;
+  REST.end=Date.now()+r.secs*1000;REST.said=r.secs<=20;$('#restpill').hidden=false;pillPlace();document.body.classList.add('resting');$('#reststopb').innerHTML=I.x;
   if(!REST.wl&&navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{REST.wl=w;w.addEventListener('release',()=>{if(REST.wl===w)REST.wl=null})}).catch(()=>{});
   clearInterval(REST.iv);REST.iv=setInterval(restTick,250);restTick();
 }
@@ -1679,8 +1681,31 @@ function restSheet(){const r=restPrefs(),run=REST.end>Date.now();
    +'<div class="rdur"><button data-act="restadj" data-v="-15" aria-label="15 seconds less">−15</button><b id="rsecs">'+mmss(r.secs)+'</b><button data-act="restadj" data-v="15" aria-label="15 seconds more">+15</button></div>'
    +'<div class="rpre">'+REST_PRE.map(v=>'<button class="'+(v===r.secs?'on':'')+'" data-act="restset" data-v="'+v+'">'+mmss(v)+'</button>').join('')+'</div>'
    +'<div class="rrun"'+(run?'':' hidden')+' style="text-align:center;margin-top:16px;color:var(--muted)">Resting now: <b class="rleft" style="color:var(--fg)">'+mmss(Math.max(0,Math.ceil((REST.end-Date.now())/1000)))+'</b> left</div>'
+   +(pillPos()?'<p style="text-align:center;margin:14px 0 0"><button class="btn" data-act="pillreset">Reset timer position</button></p>':'<p style="text-align:center;margin:14px 0 0;color:var(--muted);font-size:14px">Press and hold the timer to move it.</p>')
    +'<div class="foot"><button class="btn" data-act="resttest">Test voice</button>'+(run?'<button class="btn" data-act="reststop">Stop timer</button>':'')+'<button class="btn pri" data-act="close">Done</button></div>')}
 function restSave(r){S.prefs.rest=r;mark('core')}
+/* Rest pill: press and hold (350 ms), then drag it anywhere. The spot is saved on this device as fractions of the
+   screen (localStorage), so it survives rotation; the rest sheet has "Reset timer position". */
+const PILL_KEY='meso-log-pill';
+const pillPos=()=>{try{const p=JSON.parse(localStorage.getItem(PILL_KEY));return p&&p.x>=0&&p.x<=1&&p.y>=0&&p.y<=1?p:null}catch(e){return null}};
+function pillAt(el,l,t){const w=el.offsetWidth,h=el.offsetHeight;
+  el.style.left=Math.max(4,Math.min(innerWidth-w-4,l))+'px';el.style.top=Math.max(4,Math.min(innerHeight-h-4,t))+'px';el.style.bottom='auto';el.style.transform='none'}
+function pillPlace(){const el=$('#restpill'),p=pillPos();if(!el)return;
+  if(!p){el.style.left=el.style.top=el.style.bottom=el.style.transform='';return}
+  if(!el.hidden)pillAt(el,p.x*innerWidth-el.offsetWidth/2,p.y*innerHeight-el.offsetHeight/2)}
+(()=>{const el=$('#restpill');if(!el)return;let hold=0,drag=null,start=null,eat=0;
+  el.addEventListener('pointerdown',e=>{if(e.button)return;start=[e.clientX,e.clientY];clearTimeout(hold);const id=e.pointerId;
+    hold=setTimeout(()=>{hold=0;const r=el.getBoundingClientRect();drag={dx:start[0]-r.left,dy:start[1]-r.top};el.classList.add('drag');
+      try{el.setPointerCapture(id)}catch(_){}if(navigator.vibrate)navigator.vibrate(15)},350)});
+  el.addEventListener('pointermove',e=>{
+    if(!drag){if(hold&&start&&Math.hypot(e.clientX-start[0],e.clientY-start[1])>10){clearTimeout(hold);hold=0}return}
+    e.preventDefault();start=[e.clientX,e.clientY];pillAt(el,e.clientX-drag.dx,e.clientY-drag.dy)});
+  const end=()=>{clearTimeout(hold);hold=0;if(!drag)return;drag=null;el.classList.remove('drag');eat=Date.now();
+    const r=el.getBoundingClientRect();localStorage.setItem(PILL_KEY,JSON.stringify({x:(r.left+r.width/2)/innerWidth,y:(r.top+r.height/2)/innerHeight}))};
+  el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+  el.addEventListener('click',e=>{if(Date.now()-eat<500){e.stopPropagation();e.preventDefault()}},true);   // the drop is not a tap on +15 or stop
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+  addEventListener('resize',pillPlace)})();
 /* Behind the scenes: a secret menu for the owner. Tap the "More" heading 7 times to turn it on or off (this device only).
    Adds "Behind the scenes" to the workout menu: why each muscle got its set change and where each number came from. */
 /* Update check. When the app opens or comes back to the screen, it asks the server (past every cache) when the page
@@ -1929,6 +1954,7 @@ restopen(){restSheet()},
 restonoff(el){const r=restPrefs();r.on=!r.on;restSave(r);el.classList.toggle('on',r.on);el.setAttribute('aria-checked',r.on);if(!r.on)restStop();render()},
 restadj(el){const r=restPrefs();r.secs=Math.max(15,Math.min(900,r.secs+ +el.dataset.v));restSave(r);restSheet()},
 restset(el){const r=restPrefs();r.secs=+el.dataset.v;restSave(r);restSheet()},
+pillreset(){localStorage.removeItem(PILL_KEY);pillPlace();restSheet()},
 resttest(){restAudio();restWarn();setTimeout(restGo,1600)},
 reststop(){restStop();if(!$('#sheet').hidden&&$('#sheet .rdur'))restSheet()},
 restplus(){if(REST.end)REST.end+=15000;restTick()},
