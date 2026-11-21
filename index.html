@@ -1463,7 +1463,7 @@ function toggleSet(ei,si){
     const dv=first?deriveSoreness(mu):null;
     const due0=s.exs.map((_,i)=>noteDue(s,i));
     t.done=true;if(!s.date)s.date=today();delete s.skipped;
-    if(!s.done&&s.exs.some(z=>z.sets.some(q=>!q.done)))restStart();else restStop();   // no rest after the last set
+    if(!s.done&&x.sets.some(q=>!q.done))restStart();else restStop();   // no rest after an exercise's last set (or the workout's)
     if(si===0)matchTargets(x);
     if(first){trackWorked(mu);mark('core')}
     commit(s);render();
