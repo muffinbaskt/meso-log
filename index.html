@@ -1588,19 +1588,21 @@ function exForm(e){
    Logging a set starts it (not the last set of the workout, not in a finished workout). At 0 the screen flashes green
    and a synthesized voice says "Go". Web Audio, like the fireworks, so it plays over music without pausing it.
    The end time is a clock time, so a throttled tab still ends on time; a screen wake lock keeps the phone awake. */
-const REST={end:0,iv:null,ctx:null,wl:null};
+const REST={end:0,iv:null,ctx:null,wl:null,said:false};
 const restPrefs=()=>{const r=S.prefs.rest||{};return {on:!!r.on,secs:r.secs>0?r.secs:120}};
 const mmss=n=>Math.floor(n/60)+':'+String(n%60).padStart(2,'0');
 function restBtn(){const r=restPrefs();return '<button class="ib'+(r.on?' on':'')+'" data-act="restopen" aria-label="Rest timer'+(r.on?' (on)':' (off)')+'">'+I.timer+'</button>'}
 function restAudio(){try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return null;if(!REST.ctx||REST.ctx.state==='closed')REST.ctx=new A();if(REST.ctx.state==='suspended')REST.ctx.resume();return REST.ctx}catch(e){return null}}
 function restStart(){
   const r=restPrefs();if(!r.on)return;restAudio();   // inside the tap, so the browser lets it play later
-  REST.end=Date.now()+r.secs*1000;$('#restpill').hidden=false;document.body.classList.add('resting');$('#reststopb').innerHTML=I.x;
+  REST.end=Date.now()+r.secs*1000;REST.said=r.secs<=20;$('#restpill').hidden=false;document.body.classList.add('resting');$('#reststopb').innerHTML=I.x;
   if(!REST.wl&&navigator.wakeLock)navigator.wakeLock.request('screen').then(w=>{REST.wl=w;w.addEventListener('release',()=>{if(REST.wl===w)REST.wl=null})}).catch(()=>{});
   clearInterval(REST.iv);REST.iv=setInterval(restTick,250);restTick();
 }
 function restTick(){if(!REST.end)return;const left=REST.end-Date.now();
   if(left<=0){const late=-left>5000;restStop();if(!late)restGo();return}
+  if(left>20500)REST.said=false;   // +15 pushed it back over 20 s, so warn again
+  else if(!REST.said&&left<=20000){REST.said=true;if(left>18000)restWarn()}   // no warning if the page noticed late (screen off)
   $('#resttime').textContent=mmss(Math.ceil(left/1000));
   const el=$('#sheet .rleft');if(el)el.textContent=mmss(Math.ceil(left/1000));
 }
@@ -1609,7 +1611,51 @@ function restStop(){clearInterval(REST.iv);REST.iv=null;REST.end=0;$('#restpill'
 function restGo(){
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){const f=document.createElement('div');f.className='restflash';document.body.appendChild(f);setTimeout(()=>f.remove(),1500)}
   const a=restAudio();if(!a)return;
-  const c=a.createDynamicsCompressor(),o=a.createGain();o.gain.value=.9;o.connect(c);c.connect(a.destination);goVoice(a,o,a.currentTime+.02);
+  goVoice(a,restOut(a),a.currentTime+.02);
+}
+function restOut(a){const c=a.createDynamicsCompressor(),o=a.createGain();o.gain.value=.9;o.connect(c);c.connect(a.destination);return o}
+function restWarn(){const a=restAudio();if(a)twentyVoice(a,restOut(a),a.currentTime+.02)}
+/* Formant-synthesized "twenty seconds", same robot as "Go". Each segment: duration, formants F1-F3, voicing level,
+   noise level and noise centre (fricatives and bursts). Formants glide into each segment, levels switch in 12 ms. */
+const TWENTY=[
+  [.035,[300,1700,2600],0,.5,4200],      // t burst
+  [.07,[300,700,2200],.8,0,0],           // w
+  [.13,[560,1800,2550],1,0,0],           // eh
+  [.06,[260,1450,2500],.45,0,0],         // n
+  [.025,[260,1700,2600],0,0,0],          // t closure
+  [.025,[300,1900,2700],0,.35,4200],     // t burst
+  [.13,[280,2300,3000],1,0,0],           // ee
+  [.05,[280,2300,3000],0,0,0],           // gap
+  [.13,[400,1800,2600],0,.55,6000],      // s
+  [.1,[560,1800,2550],1,0,0],            // e
+  [.05,[450,1900,2500],0,0,0],           // k closure
+  [.03,[450,1900,2500],0,.45,2200],      // k burst
+  [.08,[500,1300,2500],.85,0,0],         // uh
+  [.06,[260,1450,2500],.45,0,0],         // n
+  [.02,[300,1600,2600],.1,0,0],          // d closure
+  [.02,[300,1700,2600],.15,.25,3500],    // d burst
+  [.14,[250,1600,2600],.2,.45,5500]];    // z
+function twentyVoice(a,out,t){
+  const sr=a.sampleRate,end=t+TWENTY.reduce((n,g)=>n+g[0],0);
+  const src=a.createOscillator();src.type='sawtooth';
+  src.frequency.setValueAtTime(140,t);src.frequency.linearRampToValueAtTime(152,t+.2);src.frequency.linearRampToValueAtTime(122,t+.45);
+  src.frequency.setValueAtTime(132,t+.5);src.frequency.linearRampToValueAtTime(98,end);
+  const tilt=a.createBiquadFilter();tilt.type='lowpass';tilt.frequency.value=1400;tilt.Q.value=.5;src.connect(tilt);
+  const venv=a.createGain(),sum=a.createGain();sum.gain.value=1.6;sum.connect(venv);venv.connect(out);
+  const Q=[5,9,16],G=[1,.55,.18],fs=Q.map((q,i)=>{const f=a.createBiquadFilter(),g=a.createGain();f.type='bandpass';f.Q.value=q;g.gain.value=G[i]*q/5;tilt.connect(f);f.connect(g);g.connect(sum);return f});
+  const n=sr*2,b=a.createBuffer(1,n,sr),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  const ns=a.createBufferSource(),nf=a.createBiquadFilter(),nenv=a.createGain();ns.buffer=b;ns.loop=true;nf.type='bandpass';nf.Q.value=3;
+  ns.connect(nf);nf.connect(nenv);nenv.connect(out);
+  venv.gain.setValueAtTime(0,t);nenv.gain.setValueAtTime(0,t);fs.forEach((f,i)=>f.frequency.setValueAtTime(TWENTY[0][1][i],t));nf.frequency.setValueAtTime(4000,t);
+  let at=t;for(const [dur,F,v,nz,nc] of TWENTY){
+    const k=Math.min(.012,dur/3);
+    venv.gain.linearRampToValueAtTime(v,at+k);venv.gain.setValueAtTime(v,at+dur-k*.5);
+    nenv.gain.linearRampToValueAtTime(nz,at+k);nenv.gain.setValueAtTime(nz,at+dur-k*.5);
+    if(nc)nf.frequency.setValueAtTime(nc,at);
+    fs.forEach((f,i)=>f.frequency.linearRampToValueAtTime(F[i],at+Math.min(.04,dur*.5)));
+    at+=dur}
+  venv.gain.linearRampToValueAtTime(0,at+.02);nenv.gain.linearRampToValueAtTime(0,at+.02);
+  src.start(t);src.stop(at+.05);ns.start(t);ns.stop(at+.05);
 }
 // Formant-synthesized "Go": a short velar burst, then a voiced "o" gliding toward "u" with a falling pitch.
 function goVoice(a,out,t){
@@ -1629,11 +1675,11 @@ function goVoice(a,out,t){
 const REST_PRE=[60,90,120,150,180,240,300];
 function restSheet(){const r=restPrefs(),run=REST.end>Date.now();
   sheet('<h2>Rest timer</h2>'
-   +'<button class="fsw'+(r.on?' on':'')+'" data-act="restonoff" role="switch" aria-checked="'+r.on+'"><span><b>Rest timer</b><small>Starts when you log a set. At zero the screen flashes green and a voice says “Go”.</small></span><i></i></button>'
+   +'<button class="fsw'+(r.on?' on':'')+'" data-act="restonoff" role="switch" aria-checked="'+r.on+'"><span><b>Rest timer</b><small>Starts when you log a set. At 20 seconds left a voice says “Twenty seconds”, and at zero the screen flashes green and it says “Go”.</small></span><i></i></button>'
    +'<div class="rdur"><button data-act="restadj" data-v="-15" aria-label="15 seconds less">−15</button><b id="rsecs">'+mmss(r.secs)+'</b><button data-act="restadj" data-v="15" aria-label="15 seconds more">+15</button></div>'
    +'<div class="rpre">'+REST_PRE.map(v=>'<button class="'+(v===r.secs?'on':'')+'" data-act="restset" data-v="'+v+'">'+mmss(v)+'</button>').join('')+'</div>'
    +'<div class="rrun"'+(run?'':' hidden')+' style="text-align:center;margin-top:16px;color:var(--muted)">Resting now: <b class="rleft" style="color:var(--fg)">'+mmss(Math.max(0,Math.ceil((REST.end-Date.now())/1000)))+'</b> left</div>'
-   +'<div class="foot"><button class="btn" data-act="resttest">Test “Go”</button>'+(run?'<button class="btn" data-act="reststop">Stop timer</button>':'')+'<button class="btn pri" data-act="close">Done</button></div>')}
+   +'<div class="foot"><button class="btn" data-act="resttest">Test voice</button>'+(run?'<button class="btn" data-act="reststop">Stop timer</button>':'')+'<button class="btn pri" data-act="close">Done</button></div>')}
 function restSave(r){S.prefs.rest=r;mark('core')}
 /* Behind the scenes: a secret menu for the owner. Tap the "More" heading 7 times to turn it on or off (this device only).
    Adds "Behind the scenes" to the workout menu: why each muscle got its set change and where each number came from. */
@@ -1883,7 +1929,7 @@ restopen(){restSheet()},
 restonoff(el){const r=restPrefs();r.on=!r.on;restSave(r);el.classList.toggle('on',r.on);el.setAttribute('aria-checked',r.on);if(!r.on)restStop();render()},
 restadj(el){const r=restPrefs();r.secs=Math.max(15,Math.min(900,r.secs+ +el.dataset.v));restSave(r);restSheet()},
 restset(el){const r=restPrefs();r.secs=+el.dataset.v;restSave(r);restSheet()},
-resttest(){restAudio();restGo()},
+resttest(){restAudio();restWarn();setTimeout(restGo,1600)},
 reststop(){restStop();if(!$('#sheet').hidden&&$('#sheet .rdur'))restSheet()},
 restplus(){if(REST.end)REST.end+=15000;restTick()},
 nerdtap(){const n=Date.now();ui.nt=(ui.nt&&n-ui.ntl<1500?ui.nt:0)+1;ui.ntl=n;if(ui.nt<7)return;ui.nt=0;
