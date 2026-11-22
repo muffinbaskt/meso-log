@@ -1028,7 +1028,7 @@ function exHistory(exId){
     const done=x.sets.filter(t=>t.done&&t.w>0&&t.r>0);if(!done.length)continue;
     const T=t=>totOf(x,t.w);
     let best=done[0];for(const t of done)if(e1rm(T(t),t.r)>e1rm(T(best),best.r))best=t;
-    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,di:s.di,day:((m.days||[])[s.di]||{}).name||'',form:x.form,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
+    out.push({k:m.created*1000+ord(s),date:s.date||m.start,meso:m.name,quick:!!m.quick,wk:s.wk,di:s.di,day:((m.days||[])[s.di]||{}).name||'',bw:x.abw!=null?x.abw:null,form:x.form,sets:done.map(t=>({w:t.w,r:t.r,tot:T(t),side:!!x.side})),e1:e1rm(T(best),best.r),top:{w:best.w,r:best.r,tot:T(best),side:!!x.side}});
   }
   return out.sort((a,b)=>a.k-b.k);
 }
@@ -1206,7 +1206,7 @@ const I={
  t_ex:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 9.5v5M5.5 7v10M18.5 7v10M21.5 9.5v5M5.5 12h13"/></svg>',
  t_more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="16" cy="12" r="1" fill="currentColor"/></svg>'
 };
-function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,2200)}
+function toast(t,ms){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,ms||2200)}
 function sheet(html,cls){$('#sheet').innerHTML='<div class="scrim" data-act="close"></div><div class="panel'+(cls?' '+cls:'')+'" role="dialog" aria-modal="true"><button class="x" data-act="close" aria-label="Close">'+I.x+'</button>'+html+'</div>';$('#sheet').hidden=false}
 function closeSheet(){ui.pickNew=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';if(ui.pq&&ui.pq.length)setTimeout(pqNext,0)}
 // Runs queued actions one at a time, pausing while a sheet (feedback question) is open.
@@ -1758,13 +1758,25 @@ function nerdSheet(){
   sheet(h+'</div>','tall')}
 const HR={dev:null,bpm:null,saved:0};
 const hrOK=()=>!!(navigator.bluetooth&&navigator.bluetooth.requestDevice);
+/* Connect: the picker first (cancelling it is silent), then up to 3 tries at the connection, each capped at 15 s,
+   since Android often fails the first GATT connect. Handlers are set as properties, not added, so reconnecting the same
+   device never doubles the readings. Any failure says why on screen. */
 async function hrConnect(){
-  try{const dev=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}]});
-    dev.addEventListener('gattserverdisconnected',hrLost);
-    const ch=await (await (await dev.gatt.connect()).getPrimaryService('heart_rate')).getCharacteristic('heart_rate_measurement');
-    ch.addEventListener('characteristicvaluechanged',e=>hrValue(parseHr(e.target.value)));
-    await ch.startNotifications();HR.dev=dev;toast('Heart rate connected');render()}
-  catch(e){if(!e||e.name!=='NotFoundError')toast('Could not connect. Check the monitor is on and broadcasting.')}   // NotFoundError: picker cancelled
+  let dev;
+  try{dev=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}]})}
+  catch(e){if(!e||e.name!=='NotFoundError')toast('Could not open the device list: '+((e&&(e.message||e.name))||'unknown error'),6000);return}
+  toast('Connecting to '+(dev.name||'heart rate monitor')+'…',20000);
+  const cap=(pr,ms)=>Promise.race([pr,new Promise((_,no)=>setTimeout(()=>no(new Error('timed out')),ms))]);
+  let ch=null,err=null;
+  for(let i=0;i<3&&!ch;i++){
+    try{if(dev.gatt.connected)dev.gatt.disconnect();
+      const srv=await cap(dev.gatt.connect(),15000);
+      ch=await cap((await srv.getPrimaryService('heart_rate')).getCharacteristic('heart_rate_measurement'),10000);
+      ch.oncharacteristicvaluechanged=e=>hrValue(parseHr(e.target.value));
+      await cap(ch.startNotifications(),10000)}
+    catch(e){ch=null;err=e;await new Promise(r=>setTimeout(r,800))}}
+  if(!ch){try{dev.gatt.disconnect()}catch(_){}toast('Could not connect: '+((err&&(err.message||err.name))||'unknown error')+'. Check the monitor is on and broadcasting, then try again.',8000);return}
+  dev.ongattserverdisconnected=hrLost;HR.dev=dev;toast('Heart rate connected');render()
 }
 function hrLost(){if(!HR.dev)return;HR.dev=null;HR.bpm=null;toast('Heart rate disconnected');render()}
 function hrStop(){const d=HR.dev;HR.dev=null;HR.bpm=null;if(d&&d.gatt.connected)d.gatt.disconnect();render()}
@@ -1941,7 +1953,7 @@ stype(el){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si],v=el.dataset.v;del
 sdup(){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si];x.sets.splice(ui.si+1,0,withType({w:t.w,r:t.r,pw:t.pw,pr:t.pr,done:false},t.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 srm(){const s=curSession(),x=s.exs[ui.ei];x.sets.splice(ui.si,1);x.planned=x.sets.length;if(!x.sets.length)s.exs.splice(ui.ei,1);commit(s);closeSheet();render()},
 exhist(el){const x=curSession().exs[ctx(el).ei];if(x.ivl){ivlHist(x.exId);return}const h=exHistory(x.exId).reverse().slice(0,8);
-  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk+histDay(r))+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
+  sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk+histDay(r))+(r.bw>0?' · bodyweight '+fmt(r.bw)+' '+unit():'')+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
 exchart(el){const x=curSession().exs[ctx(el).ei];ui.chart=null;const c=lineChart(chartPts(x.exId));sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+c+'<p style="color:var(--muted);font-size:14px">Estimated one-rep max from your best set each session, in '+unit()+'. Touch the line for details.</p>');bindChart()},
 /* session */
 cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" style="--n:'+n+'">';
