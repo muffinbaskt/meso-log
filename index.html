@@ -1765,17 +1765,18 @@ async function hrConnect(){
   let dev;
   try{dev=await navigator.bluetooth.requestDevice({filters:[{services:['heart_rate']}]})}
   catch(e){if(!e||e.name!=='NotFoundError')toast('Could not open the device list: '+((e&&(e.message||e.name))||'unknown error'),6000);return}
-  toast('Connecting to '+(dev.name||'heart rate monitor')+'…',20000);
+  const nm=dev.name||'heart rate monitor';
   const cap=(pr,ms)=>Promise.race([pr,new Promise((_,no)=>setTimeout(()=>no(new Error('timed out')),ms))]);
   let ch=null,err=null;
   for(let i=0;i<3&&!ch;i++){
+    toast('Connecting to '+nm+'…'+(i?' (try '+(i+1)+' of 3)':''),60000);
     try{if(dev.gatt.connected)dev.gatt.disconnect();
-      const srv=await cap(dev.gatt.connect(),15000);
-      ch=await cap((await srv.getPrimaryService('heart_rate')).getCharacteristic('heart_rate_measurement'),10000);
-      ch.oncharacteristicvaluechanged=e=>hrValue(parseHr(e.target.value));
-      await cap(ch.startNotifications(),10000)}
-    catch(e){ch=null;err=e;await new Promise(r=>setTimeout(r,800))}}
-  if(!ch){try{dev.gatt.disconnect()}catch(_){}toast('Could not connect: '+((err&&(err.message||err.name))||'unknown error')+'. Check the monitor is on and broadcasting, then try again.',8000);return}
+      ch=await cap((async()=>{   // the whole attempt shares one 12 s limit, so no step can hang
+        const srv=await dev.gatt.connect(),svc=await srv.getPrimaryService('heart_rate'),c=await svc.getCharacteristic('heart_rate_measurement');
+        c.oncharacteristicvaluechanged=e=>hrValue(parseHr(e.target.value));await c.startNotifications();return c})(),12000)}
+    catch(e){ch=null;err=e;try{dev.gatt.disconnect()}catch(_){}await new Promise(r=>setTimeout(r,1200))}}   // drop a half-open attempt before the next
+  if(!ch){
+    toast('Could not connect: '+((err&&(err.message||err.name))||'unknown error')+'. If another app is connected to '+nm+', close it, then try again.',10000);return}
   dev.ongattserverdisconnected=hrLost;HR.dev=dev;toast('Heart rate connected');render()
 }
 function hrLost(){if(!HR.dev)return;HR.dev=null;HR.bpm=null;toast('Heart rate disconnected');render()}
