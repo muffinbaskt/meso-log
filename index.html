@@ -1263,12 +1263,12 @@ function render(){
   maybeAskBw();
 }
 function tabbar(){
-  const t=[['workout','Workout',I.t_work],['mesos','Mesos',I.t_meso],['templates','Templates',I.t_tpl],['exercises','Exercises',I.t_ex],['more','More',I.t_more]];
+  const t=[['workout','Workout',I.t_work],['mesos','Plans',I.t_meso],['templates','Templates',I.t_tpl],['exercises','Exercises',I.t_ex],['more','More',I.t_more]];
   return '<nav class="tabs">'+t.map(([k,n,ic])=>'<button data-act="tab" data-v="'+k+'" class="'+(ui.tab===k?'on':'')+'">'+ic+n+'</button>').join('')+'</nav>';
 }
 function viewWorkout(){
   const m=meso();
-  if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No mesocycle yet</h2><p>Pick a template and start a training block. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">Start a mesocycle</button><p style="margin-top:22px">Just want to try it out? Log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
+  if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No plan yet</h2><p>Make a plan: pick your workout days and add your exercises. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">New plan</button><p style="margin-top:22px">Just want to try it out? Log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
   const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=isDl(m,ui.wk),c=sessCounts(s);
   let h=m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div>'+restBtn()+'<button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div>'+restBtn()+'<button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
   h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">'+(s.skipped?'Skipped ':'Finished ')+esc(s.date||'')+'</span>':'')+(HR.dev&&!s.done?'<span class="chip hot'+(hrLogging(s)?' rec':'')+'" id="hrchip">'+hrChipText(s)+'</span>':'')+(s.hr&&s.hr.n?'<span class="chip">Avg ♥ '+hrAvg(s.hr)+' · peak '+s.hr.max+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
@@ -1308,10 +1308,10 @@ function viewWorkout(){
   return h;
 }
 function viewMesos(){
-  let h='<div class="page-h gut"><h1>Mesocycles</h1><p>Training blocks that progress week to week, ending with a deload.</p></div><div class="gut">';
-  h+='<button class="row-btn main" data-act="newmeso">New mesocycle</button><button class="row-btn quiet" data-act="quick" style="margin-top:10px">'+I.plus+'Quick workout</button>';
+  let h='<div class="page-h gut"><h1>Plans</h1><p>A plan runs for a few weeks and gets a little harder each week, then ends with an easy recovery week.</p></div><div class="gut">';
+  h+='<button class="row-btn main" data-act="newmeso">New plan</button><button class="row-btn quiet" data-act="quick" style="margin-top:10px">'+I.plus+'Quick workout</button>';
   const qs=S.mesos.filter(m=>m.quick);
-  if(!plans().length)h+='<div class="empty">No blocks yet.</div>';
+  if(!plans().length)h+='<div class="empty">No plans yet.</div>';
   plans().reverse().forEach(m=>{
     const total=m.weeks*m.days.length,done=Object.values(m.sessions).filter(s=>s.done).length,p=nextPending(m);
     h+='<div class="card"><h3>'+esc(m.name)+(m.id===S.activeMeso?'<span class="tag">Active</span>':'')+'</h3><p>'+m.weeks+' weeks · '+m.days.length+' days a week · from '+esc(m.start)+(m.style==='test'?' · test week':'')+'</p><div class="meter"><i style="width:'+(done/total*100)+'%"></i></div><p class="num">'+done+' of '+total+' workouts done'+(done<total?' · next is week '+p.wk+', day '+(p.di+1):' · complete')+'</p><div class="acts">'
@@ -1325,7 +1325,7 @@ function viewMesos(){
 }
 function viewTemplates(){
   if(ui.tpl)return viewTplEdit(S.templates.find(t=>t.id===ui.tpl));
-  let h='<div class="page-h gut"><h1>Templates</h1><p>A weekly layout of training days. Starting a mesocycle copies the template, so later edits never change a running block.</p></div><div class="gut"><button class="row-btn main" data-act="newtpl">New template</button>';
+  let h='<div class="page-h gut"><h1>Templates</h1><p>A weekly layout of training days. Starting a plan from a template copies it, so later template edits never change a plan that is already running.</p></div><div class="gut"><button class="row-btn main" data-act="newtpl">New template</button>';
   S.templates.forEach(t=>{h+='<button class="li" data-act="edittpl" data-id="'+t.id+'"><div><b>'+esc(t.name)+'</b><small>'+t.days.length+' days · '+t.days.reduce((a,d)=>a+d.items.reduce((b,i)=>b+i.sets,0),0)+' sets a week</small></div><span class="chev">'+I.chev+'</span></button>'});
   return h+'</div>';
 }
@@ -1364,7 +1364,7 @@ function viewMore(){
   h+=soreStatus();
   h+=accountCard();
   h+='<div class="sec">Backup</div><div class="card" style="margin-top:0"><p id="status"></p><div class="acts"><button class="btn" data-act="export">Export backup</button><label class="btn" for="imp" style="cursor:pointer">Import backup</label><input id="imp" type="file" accept=".json,application/json" hidden data-chg="import"></div></div>';
-  h+='<div class="sec">How adjustments work</div><div class="card rules" style="margin-top:0"><p><b>Target RIR.</b> Reps in reserve start at 3 and fall to 0 across the block. With the test-week option, week 1 goes to 0–1 to measure your strength, then 2 falls to 0. The last week is a deload at 5 RIR with half the sets and lighter weight.</p><p><b>Weight and reps.</b> Progress is compared on total weight (bar plus both ends), even when you log one end. Each exercise uses your best logged set from last time and an Epley estimate of your max. It holds the weight and adds reps as the target RIR drops, and steps the weight up by that exercise’s increment once reps would pass the top of its range.</p><p><b>Sets.</b> Soreness comes from your daily check-ins. If a muscle has none, you rate it the first time you log it in a session. That, plus last session’s pump and volume ratings, adds or removes up to 3 sets for the muscle. Added sets go to the exercise with the fewest, removed sets come from the one with the most.</p><p><b>Joint pain.</b> Moderate or severe pain on an exercise takes one set off it next time. Severe also flags it for replacement.</p><p>These are simple rules written for this app. They are not any other app’s algorithm.</p></div>';
+  h+='<div class="sec">How adjustments work</div><div class="card rules" style="margin-top:0"><p><b>Target RIR.</b> Reps in reserve start at 3 and fall to 0 across the plan. With the test-week option, week 1 goes to 0–1 to measure your strength, then 2 falls to 0. The last week is a deload at 5 RIR with half the sets and lighter weight.</p><p><b>Weight and reps.</b> Progress is compared on total weight (bar plus both ends), even when you log one end. Each exercise uses your best logged set from last time and an Epley estimate of your max. It holds the weight and adds reps as the target RIR drops, and steps the weight up by that exercise’s increment once reps would pass the top of its range.</p><p><b>Sets.</b> Soreness comes from your daily check-ins. If a muscle has none, you rate it the first time you log it in a session. That, plus last session’s pump and volume ratings, adds or removes up to 3 sets for the muscle. Added sets go to the exercise with the fewest, removed sets come from the one with the most.</p><p><b>Joint pain.</b> Moderate or severe pain on an exercise takes one set off it next time. Severe also flags it for replacement.</p><p>These are simple rules written for this app. They are not any other app’s algorithm.</p></div>';
   h+='<div class="sec">Danger zone</div><button class="li" data-act="resetall" style="color:var(--bad)"><b>Erase all data</b></button></div>';
   return h;
 }
@@ -1948,14 +1948,14 @@ noteopen(el){const s=curSession(),ei=ctx(el).ei,x=s.exs[ei],e=ex(x.exId);ui.ei=e
   sheet('<h2>Notes</h2><p style="color:var(--muted);margin-top:0">'+esc(e.name)+'</p>'+(e.pin?'<div class="nbox"><small>Pinned</small><p>'+esc(e.pin)+'</p></div>':'')+(x.note?'<div class="nbox"><small>Today</small><p>'+esc(x.note)+'</p></div>':'')+'<div class="foot"><button class="btn" data-act="xnote">Edit</button><button class="btn pri" data-act="close">Got it</button></div>');
   if(!x.noteSeen){x.noteSeen=true;commit(s);setTimeout(render,0)}},
 xorder(){const s=curSession();
-  sheet('<h2>Reorder</h2><p style="color:var(--muted);margin-top:0">Drag the handles to put exercises in order.</p><div id="ordlist">'+s.exs.map((x,i)=>'<div class="ordr" data-i="'+i+'"><span class="grip" data-drag aria-label="Drag to move">'+I.grip+'</span><span class="onm">'+esc(ex(x.exId).name)+'<small>'+esc(MUS[ex(x.exId).muscle].name)+'</small></span></div>').join('')+'</div><div class="foot">'+(meso().quick?'<button class="btn pri" data-act="ordgo" data-v="day">Done</button>':'<button class="btn" data-act="ordgo" data-v="day">Just today</button><button class="btn pri" data-act="ordgo" data-v="rest">Rest of mesocycle</button>')+'</div>')},
+  sheet('<h2>Reorder</h2><p style="color:var(--muted);margin-top:0">Drag the handles to put exercises in order.</p><div id="ordlist">'+s.exs.map((x,i)=>'<div class="ordr" data-i="'+i+'"><span class="grip" data-drag aria-label="Drag to move">'+I.grip+'</span><span class="onm">'+esc(ex(x.exId).name)+'<small>'+esc(MUS[ex(x.exId).muscle].name)+'</small></span></div>').join('')+'</div><div class="foot">'+(meso().quick?'<button class="btn pri" data-act="ordgo" data-v="day">Done</button>':'<button class="btn" data-act="ordgo" data-v="day">Just today</button><button class="btn pri" data-act="ordgo" data-v="rest">Rest of this plan</button>')+'</div>')},
 ordgo(el){const s=curSession(),m=meso(),ord=[...document.querySelectorAll('#ordlist .ordr')].map(r=>+r.dataset.i);
   if(ord.some((v,i)=>v!==i)){s.exs=ord.map(i=>s.exs[i]);
     if(el.dataset.v==='rest'){if(m.blank)syncDay(m,s);else m.days[s.di].items=reorderItems(m.days[s.di].items,s.exs.map(x=>x.exId));dropUntouched(m,s.di,s.wk)}
     commit(s)}
   closeSheet();render()},
 addgo(el){const m=meso(),s=curSession();
-  if(el.dataset.v==='rest'){m.days[s.di].items.push({exId:ui.addId,sets:3});dropUntouched(m,s.di,s.wk);commit(s);toast('Added to '+m.days[s.di].name+' for the rest of the mesocycle')}
+  if(el.dataset.v==='rest'){m.days[s.di].items.push({exId:ui.addId,sets:3});dropUntouched(m,s.di,s.wk);commit(s);toast('Added to '+m.days[s.di].name+' for the rest of this plan')}
   closeSheet();render()},
 replgo(el){const s=curSession(),m=meso(),r=ui.repl,old=s.exs[r.ei];
   s.exs[r.ei]=Object.assign(makeEx(m,ui.wk,ui.di,r.id,old.planned),old.ss?{ss:true}:{});
@@ -1972,9 +1972,9 @@ xreplan(){const s=curSession(),m=meso(),x=s.exs[ui.ei],n=replanEx(m,s,x);matchTa
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
 xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
   if(!m.blank){ui.rmd={ei,id};   // planned day: ask whether it also leaves later weeks, like Replace does
-    sheet('<h2>Removed</h2><p><b>'+esc(ex(id).name)+'</b> is out of this workout.</p><p style="color:var(--muted)">Take it out of '+esc(m.days[s.di].name)+' for the rest of the mesocycle too?</p><div class="foot"><button class="btn" data-act="rmgo" data-v="day">Just today</button><button class="btn pri" data-act="rmgo" data-v="rest">Rest of mesocycle</button></div>')}},
+    sheet('<h2>Removed</h2><p><b>'+esc(ex(id).name)+'</b> is out of this workout.</p><p style="color:var(--muted)">Take it out of '+esc(m.days[s.di].name)+' for the rest of this plan too?</p><div class="foot"><button class="btn" data-act="rmgo" data-v="day">Just today</button><button class="btn pri" data-act="rmgo" data-v="rest">Rest of this plan</button></div>')}},
 rmgo(el){const m=meso(),s=curSession(),r=ui.rmd;
-  if(el.dataset.v==='rest'&&removeItem(m.days[s.di].items,r.ei,r.id)){dropUntouched(m,s.di,s.wk);commit(s);toast('Removed from '+m.days[s.di].name+' for the rest of the mesocycle')}
+  if(el.dataset.v==='rest'&&removeItem(m.days[s.di].items,r.ei,r.id)){dropUntouched(m,s.di,s.wk);commit(s);toast('Removed from '+m.days[s.di].name+' for the rest of this plan')}
   closeSheet();render()},
 setmenu(el){const c=ctx(el);ui.ei=c.ei;ui.si=c.si;const ty=curSession().exs[c.ei].sets[c.si].ty;sheet('<h2>Set '+(c.si+1)+'</h2><div class="menu"><button class="li" data-act="stypes">'+I.swap+'<div><b>Set type</b><small>'+(ty?SET_TY[ty].name:'Regular')+'</small></div></button><button class="li" data-act="sdup">'+I.plus+'Duplicate set</button><button class="li bad" data-act="srm">'+I.trash+'Remove set</button></div>')},
 stypes(){const t=curSession().exs[ui.ei].sets[ui.si],cur=t.ty||'reg';
@@ -2032,18 +2032,18 @@ pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   if(p.kind==='add'){s.exs.push(makeEx(m,ui.wk,ui.di,id,3));
     ui.pq=(ui.pq||[]).concat(maybeAskBw);   // after the Added question closes, however it closes
     if(!m.blank){commit(s);ui.addId=id;render();   // planned day: ask whether it stays in later weeks, like Replace does
-      sheet('<h2>Added</h2><p><b>'+esc(ex(id).name)+'</b> is in this workout.</p><p style="color:var(--muted)">Keep it in '+esc(m.days[s.di].name)+' for the rest of the mesocycle too?</p><div class="foot"><button class="btn" data-act="addgo" data-v="day">Just today</button><button class="btn pri" data-act="addgo" data-v="rest">Rest of mesocycle</button></div>');return}}
+      sheet('<h2>Added</h2><p><b>'+esc(ex(id).name)+'</b> is in this workout.</p><p style="color:var(--muted)">Keep it in '+esc(m.days[s.di].name)+' for the rest of this plan too?</p><div class="foot"><button class="btn" data-act="addgo" data-v="day">Just today</button><button class="btn pri" data-act="addgo" data-v="rest">Rest of this plan</button></div>');return}}
   else if(p.kind==='replace'){ui.repl={ei:p.ei,id};const old=s.exs[p.ei];if(m.quick){ACT.replgo({dataset:{v:'day'}});return}
-    sheet('<h2>Replace</h2><p>'+esc(ex(old.exId).name)+' → <b>'+esc(ex(id).name)+'</b></p><p style="color:var(--muted)">Swap it for this workout only, or in this day for the rest of the mesocycle?</p><div class="foot"><button class="btn" data-act="replgo" data-v="day">Just today</button><button class="btn pri" data-act="replgo" data-v="rest">Rest of mesocycle</button></div>');return}
+    sheet('<h2>Replace</h2><p>'+esc(ex(old.exId).name)+' → <b>'+esc(ex(id).name)+'</b></p><p style="color:var(--muted)">Swap it for this workout only, or in this day for the rest of this plan?</p><div class="foot"><button class="btn" data-act="replgo" data-v="day">Just today</button><button class="btn pri" data-act="replgo" data-v="rest">Rest of this plan</button></div>');return}
   else if(p.kind==='tpl'){const t=S.templates.find(z=>z.id===ui.tpl);t.days[p.di].items.push({exId:id,sets:3});mark('core')}
   if(p.kind!=='tpl'){syncDay(m,s);commit(s)}closeSheet();render()},
 /* mesos */
-newmeso(){const t0=S.templates[0];
-  sheet('<h2>New mesocycle</h2><div class="field"><label for="f_mn">Name</label><input id="f_mn" class="in" value="'+esc(t0?t0.name.replace(/ \(sample\)/,'')+' block':'New block')+'"></div><div class="field"><label for="f_mt">Template</label><select id="f_mt" class="in" data-chg="mtpl">'+S.templates.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join('')+'<option value=""'+(t0?'':' selected')+'>Blank: build as you go</option></select></div><div class="field" id="w_md"'+(t0?' hidden':'')+'><label for="f_md">Days per week</label><select id="f_md" class="in">'+[1,2,3,4,5,6,7].map(n=>'<option'+(n===4?' selected':'')+'>'+n+'</option>').join('')+'</select><p style="color:var(--muted);font-size:14px;margin:4px 0 0">Each day starts empty. Exercises you add on a day carry over to that day every week.</p></div><div class="two"><div class="field"><label for="f_mw">Weeks</label><select id="f_mw" class="in">'+[4,5,6,7,8].map(n=>'<option'+(n===5?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="field"><label for="f_ms">Start date</label><input id="f_ms" type="date" class="in" value="'+today()+'"></div></div><div class="field"><label for="f_mr">Reps in reserve</label><select id="f_mr" class="in"><option value="std">Standard: 3, 2, 1, 0</option><option value="test">Test week: 0–1, then 2, 1, 0</option></select></div><p style="color:var(--muted);font-size:14px">Test week takes every set in week 1 to 0–1 reps in reserve, close to failure, so the app measures your real strength instead of relying on a guess at 3. The last week is a deload.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="mesocreate">Start</button></div>')},
+newmeso(){
+  sheet('<h2>New plan</h2><div class="field"><label for="f_mn">Name</label><input id="f_mn" class="in" value="" placeholder="My plan"></div><div class="field"><label for="f_mt">Start from</label><select id="f_mt" class="in" data-chg="mtpl"><option value="" selected>Blank: build as you go</option>'+S.templates.map(t=>'<option value="'+t.id+'">Template: '+esc(t.name)+'</option>').join('')+'</select></div><div class="field" id="w_md"><label for="f_md">Days per week</label><select id="f_md" class="in">'+[1,2,3,4,5,6,7].map(n=>'<option'+(n===4?' selected':'')+'>'+n+'</option>').join('')+'</select><p style="color:var(--muted);font-size:14px;margin:4px 0 0">Each day starts empty. Exercises you add on a day carry over to that day every week.</p></div><div class="two"><div class="field"><label for="f_mw">Weeks</label><select id="f_mw" class="in">'+[4,5,6,7,8].map(n=>'<option'+(n===5?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="field"><label for="f_ms">Start date</label><input id="f_ms" type="date" class="in" value="'+today()+'"></div></div><div class="field"><label for="f_mr">Reps in reserve</label><select id="f_mr" class="in"><option value="std">Standard: 3, 2, 1, 0</option><option value="test">Test week: 0–1, then 2, 1, 0</option></select></div><p style="color:var(--muted);font-size:14px">Test week takes every set in week 1 to 0–1 reps in reserve, close to failure, so the app measures your real strength instead of relying on a guess at 3. The last week is a deload.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="mesocreate">Start</button></div>')},
 mesocreate(){const tid=$('#f_mt').value,t=S.templates.find(z=>z.id===tid);
   if(tid&&(!t||!t.days.length)){toast('That template has no days');return}
   const days=t?clone(t.days).sort((a,b)=>a.weekday-b.weekday):blankDays(+$('#f_md').value);
-  const m={id:rid(),name:$('#f_mn').value.trim()||(t?t.name:'New block'),weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days,sessions:{},created:Date.now(),template:t?t.name:'Blank',style:$('#f_mr').value==='test'?'test':'std'};
+  const m={id:rid(),name:$('#f_mn').value.trim()||(t?t.name.replace(/ \(sample\)/,''):'My plan'),weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days,sessions:{},created:Date.now(),template:t?t.name:'Blank',style:$('#f_mr').value==='test'?'test':'std'};
   if(!t)m.blank=true;
   const pm=plans().pop();if(pm&&pm.prio&&Object.keys(pm.prio).length)m.prio=clone(pm.prio);
   pruneQuick();S.mesos.push(m);S.activeMeso=m.id;mark('core','meso:'+m.id);gotoPending();ui.tab='workout';closeSheet();render();window.scrollTo(0,0)},
@@ -2051,7 +2051,7 @@ quick(){const cur=meso(),m=quickMeso(cur&&!cur.quick?cur.id:cur&&cur.ret);pruneQ
 quickclose(){const m=meso(),s=curSession();if(!sessCounts(s).d&&!s.done){ACT.dodelmeso({dataset:{id:m.id}});return}leaveQuick(m)},
 activate(el){pruneQuick(el.dataset.id);S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
 openmeso(el){const cur=meso(),to=S.mesos.find(m=>m.id===el.dataset.id);if(to&&to.quick&&cur&&!cur.quick)to.ret=cur.id;pruneQuick(el.dataset.id);S.activeMeso=el.dataset.id;mark('core');gotoPending();ui.tab='workout';render();window.scrollTo(0,0)},
-delmeso(el){const q=(S.mesos.find(m=>m.id===el.dataset.id)||{}).quick;confirmSheet(q?'Delete this workout?':'Delete this mesocycle?',q?'Its logged sets are removed from your history for good.':'All its logged sets are removed for good.','dodelmeso',el.dataset.id)},
+delmeso(el){const q=(S.mesos.find(m=>m.id===el.dataset.id)||{}).quick;confirmSheet(q?'Delete this workout?':'Delete this plan?',q?'Its logged sets are removed from your history for good.':'All its logged sets are removed for good.','dodelmeso',el.dataset.id)},
 dodelmeso(el){const id=el.dataset.id,gone=S.mesos.find(m=>m.id===id);S.mesos=S.mesos.filter(m=>m.id!==id);if(S.activeMeso===id)S.activeMeso=fallbackMeso(gone&&gone.ret);mark('core','del:'+id);ui.tmp=null;gotoPending();closeSheet();render()},
 /* templates */
 newtpl(){const t={id:rid(),name:'New template',days:[{name:'Day 1',weekday:0,items:[]}]};S.templates.push(t);mark('core');ui.tpl=t.id;render();window.scrollTo(0,0)},
@@ -2066,7 +2066,7 @@ trm(el){const t=S.templates.find(z=>z.id===ui.tpl),d=+el.closest('[data-di]').da
 taddday(){const t=S.templates.find(z=>z.id===ui.tpl);t.days.push({name:'Day '+(t.days.length+1),weekday:Math.min(6,t.days.length),items:[]});mark('core');render()},
 tdelday(el){const t=S.templates.find(z=>z.id===ui.tpl);t.days.splice(+el.closest('[data-di]').dataset.di,1);mark('core');render()},
 tdup(){const t=S.templates.find(z=>z.id===ui.tpl),c=clone(t);c.id=rid();c.name=t.name+' (copy)';S.templates.push(c);mark('core');ui.tpl=c.id;render();window.scrollTo(0,0)},
-tdel(){confirmSheet('Delete this template?','Mesocycles already started from it are not affected.','dotdel')},
+tdel(){confirmSheet('Delete this template?','Plans already started from it are not affected.','dotdel')},
 dotdel(){S.templates=S.templates.filter(t=>t.id!==ui.tpl);ui.tpl=null;mark('core');closeSheet();render()},
 /* exercises */
 newex(){exForm()},
@@ -2095,7 +2095,7 @@ uselocal(){localStorage.setItem(LSMODE,'local');startApp()},
 signinopen(){localStorage.removeItem(LSMODE);ui.signin=true;ui.sent=null;render();window.scrollTo(0,0)},
 signout(){confirmSheet('Sign out?','Your log stays in your account. It is removed from this device until you sign in again.','dosignout')},
 async dosignout(){closeSheet();await signOut()},
-delacct(){confirmSheet('Delete your account?','This permanently deletes your account and every mesocycle, template and setting in it. Export a backup first if you want to keep anything.','dodelacct')},
+delacct(){confirmSheet('Delete your account?','This permanently deletes your account and every plan, template and setting in it. Export a backup first if you want to keep anything.','dodelacct')},
 async dodelacct(){closeSheet();try{await deleteAccount()}catch(e){toast('Could not delete the account. Try again.')}},
 subprog(){ui.sub='progress';render();window.scrollTo(0,0)},
 subback(){ui.sub=null;render()},
@@ -2107,7 +2107,7 @@ async export(){
   }catch(e){if(e&&e.code==='declined')return}
   sheet('<h2>Backup</h2><p style="color:var(--muted)">Saving files is not available here. Copy this text and keep it somewhere safe.</p><textarea id="f_exp" class="in" readonly style="min-height:160px;font-size:12px">'+esc(out)+'</textarea><div class="foot"><button class="btn" data-act="close">Close</button><button class="btn pri" data-act="copyexp">Copy</button></div>')},
 async copyexp(){const t=$('#f_exp');try{await navigator.clipboard.writeText(t.value);toast('Copied')}catch(e){t.select();toast('Press copy on your keyboard')}},
-resetall(){confirmSheet('Erase everything?','This deletes your mesocycles, templates, custom exercises and settings from this device and your account.','doreset2')},
+resetall(){confirmSheet('Erase everything?','This deletes your plans, templates, custom exercises and settings from this device and your account.','doreset2')},
 doreset2(){const ids=S.mesos.map(m=>m.id);S=seedState();ids.forEach(i=>dirty.add('del:'+i));mark('core');ui.tab='workout';ui.tmp=null;closeSheet();render()},
 doimport(){try{const d=ui.imp;S={v:1,prefs:d.prefs||{unit:'lb',bw:200},exercises:d.exercises,templates:d.templates||[],mesos:d.mesos||[],activeMeso:d.activeMeso||null,track:d.track||{}};normalize();
   mark('core',...S.mesos.map(m=>'meso:'+m.id));ui.tmp=null;gotoPending();ui.tab='workout';closeSheet();render();toast('Backup imported')}catch(e){toast('Import failed')}}
@@ -2149,7 +2149,7 @@ document.addEventListener('change',e=>{
   else if(k==='mtpl'){$('#w_md').hidden=!!el.value}
   else if(k==='barload'){S.prefs.barLoad=el.value;mark('core')}
   else if(k==='cx'){ui.cx=el.value;ui.chart=null;render()}
-  else if(k==='import'){const f=el.files&&el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.exercises)||!Array.isArray(d.mesos||[]))throw 0;if(unsafeBackup(d)){toast('That backup has damaged or unsafe data, so it was not imported');console.warn('unsafe backup value at',unsafeBackup(d));return}ui.imp=d;confirmSheet('Replace your data?','This backup has '+(d.mesos||[]).length+' mesocycles and '+(d.templates||[]).length+' templates. Importing replaces everything you have now.','doimport')}catch(err){toast('That file is not a Meso Log backup')}};r.readAsText(f);el.value=''}
+  else if(k==='import'){const f=el.files&&el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.exercises)||!Array.isArray(d.mesos||[]))throw 0;if(unsafeBackup(d)){toast('That backup has damaged or unsafe data, so it was not imported');console.warn('unsafe backup value at',unsafeBackup(d));return}ui.imp=d;confirmSheet('Replace your data?','This backup has '+(d.mesos||[]).length+' plans and '+(d.templates||[]).length+' templates. Importing replaces everything you have now.','doimport')}catch(err){toast('That file is not a Fit R Good backup')}};r.readAsText(f);el.value=''}
 });
 document.addEventListener('input',e=>{
   const el=e.target,k=el.dataset.inp;if(!k)return;

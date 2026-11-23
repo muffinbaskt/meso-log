@@ -6,6 +6,8 @@ Working with the owner: he prefers step-by-step instructions, direct answers abo
 
 ## Status
 
+- Wording (2026-11-23): the UI never says "meso" or "mesocycle" (a user found the app unfriendly). On screen they are **plans** ("New plan", the Plans tab, "Rest of this plan"). Code, storage keys and data (`S.mesos`, `meso()`, `data-act="newmeso"`) keep the old names on purpose: renaming them would break saved data and sync. Keep new UI copy jargon-light. New plan starts Blank (`newmeso`); templates are an option in "Start from", and the name defaults to "My plan".
+
 - Built in a Claude chat as a published artifact (v2), then packaged here. `index.html` is now the source of truth.
 - Smoke tested at 390 px in light and dark with Playwright on 2026-10-29 (every tab and sheet, no console errors). Not yet used for real workouts: the owner is testing it over several weeks before inviting anyone.
 - Logic is covered by `tests/logic.test.js` (275 checks, all passing). Storage and sign-in have no automated tests. Run `npm test`.
