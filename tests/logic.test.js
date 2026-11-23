@@ -41,19 +41,22 @@ eq([1, 2, 3, 4, 5, 6, 7, 8].map(w => T.rirFor({ weeks: 8, style: 'test' }, w)), 
   eq(T.planLoad(e, { tot: 140, r: 10, rir: 3 }, 0.5, false).r > 10, true, 'test week after a standard block asks for more reps'); }
 
 // ---- set changes ----
-eq(T.setDelta(0, 1, 1), 2, 'never sore');
-eq(T.setDelta(1, 1, 1), 1, 'recovered early');
+eq(T.setDelta(0, 1, 1), 0, 'never sore adds nothing (soreness can come from another day)');
+eq(T.setDelta(1, 1, 1), 0, 'recovered early adds nothing');
 eq(T.setDelta(2, 1, 1), 0, 'just in time');
-eq(T.setDelta(3, 1, 1), -2, 'still sore');
+eq(T.setDelta(3, 1, 1), -1, 'still sore takes 1 off');
 eq(T.setDelta(2, 1, 2), -1, 'last volume pushed limits');
-eq(T.setDelta(3, 1, 3), -3, 'clamp low');
-eq(T.setDelta(0, 0, 0), 3, 'clamp high');
+eq(T.setDelta(3, 1, 3), -3, 'still sore + too much');
+eq(T.setDelta(0, 0, 0), 2, 'not enough + low pump while fresh');
 eq(T.setDelta(2, null, null), 0, 'no previous ratings');
 eq(T.distribute([3, 3], 2), [4, 4], 'add spreads');
 eq(T.distribute([4, 2], 1), [4, 3], 'add goes to smallest');
 eq(T.distribute([3, 2], -2), [2, 1], 'remove comes from largest (5 sets -> 3)');
 eq(T.distribute([1, 1], -3), [1, 1], 'floor of 1 set');
 eq(T.distribute([6, 6], 2), [6, 6], 'cap of 6 sets');
+eq(T.distribute([2], 3), [3], 'one exercise moves at most 1 set (deadlift 2 never jumps to 5)');
+eq(T.distribute([3, 3], -3), [2, 2], 'removals capped at 1 per exercise too');
+eq(T.distribute([2, 3, 3], 2), [3, 4, 3], 'adds still go to the smallest first');
 
 // ---- weight and rep progression, total-weight mode ----
 const e = { lo: 8, hi: 12, inc: 5, bw: false };
@@ -113,9 +116,9 @@ s1.exs.forEach(x => x.sets.forEach(t => { t.done = true; t.w = t.w || 40; t.r = 
 s1.done = true;
 const s2b = T.buildSession(m, 2, 0);
 s2b.fb.biceps = { sor: 0 }; T.applyMuscle(m, s2b, 'biceps');
-eq(s2b.exs.find(x => x.exId === 'dumbbell-curl-alternating').sets.length, 6, 'never sore + low pump + not enough volume: +3 sets');
+eq(s2b.exs.find(x => x.exId === 'dumbbell-curl-alternating').sets.length, 4, 'low pump + not enough volume: +1 set, the most one exercise can move');
 s2b.fb.chest = { sor: 3 }; T.applyMuscle(m, s2b, 'chest');
-eq(s2b.exs[0].sets.length, 2, 'still sore: -2 sets');
+eq(s2b.exs[0].sets.length, 3, 'still sore: -1 set');
 s2b.exs[0].sets[0].done = true; s2b.exs[0].sets[1].done = true; s2b.fb.chest = { sor: 3 }; T.applyMuscle(m, s2b, 'chest');
 eq(s2b.exs[0].sets.length >= 2, true, 'logged sets are never removed');
 
@@ -267,14 +270,14 @@ eq(T.withType({}, 'bogus').ty, undefined, 'unknown types are ignored');
     sets: [{ w: 30, r: 11, done: true }, { w: 25, r: 11, done: true }, { w: 25, r: 11, done: true }] }] };
   const s = T.buildSession(mm, 2, 0); s.fb[mu] = { sor: 0, auto: true }; T.applyMuscle(mm, s, mu);
   const em = T.explainMuscle(mm, s, mu);
-  eq(em.parts.map(p => [p.k, p.v]), [['sor', 2], ['vol', 1], ['pump', 1], ['clamp', -1]], 'parts: soreness, volume, low pump, cap');
-  eq([em.total, em.applied], [3, 3], 'total matches what was applied');
+  eq(em.parts.map(p => [p.k, p.v]), [['sor', 0], ['vol', 1], ['pump', 1]], 'parts: soreness, volume, low pump');
+  eq([em.total, em.applied], [2, 2], 'total matches what was applied');
   eq([em.auto, em.prev.date], [true, '2026-11-10'], 'source and last workout');
   mm.prio[mu] = 'maint'; s.fb[mu] = { sor: 3 }; eq(T.explainMuscle(mm, s, mu).total, T.prioDelta(T.setDelta(3, 0, 0), 'maint', 3, 0), 'priority step matches prioDelta');
   const x = s.exs.find(z => z.exId === exId), ee = T.explainEx(mm, s, x);
   eq([ee.from.wk, ee.from.date, ee.best.rir], [1, '2026-11-10', 0.5], 'numbers come from last time');
   eq(ee.sets.slice(0, 3).map(q => [q.j, q.plan.w, q.plan.r]), [[0, 30, 10], [1, 25, 10], [2, 25, 10]], 'each set shows its source and plan');
-  eq(ee.sets[4].j, 2, 'extra sets show they follow the last set');
+  eq([ee.sets.length, ee.sets[3].j], [4, 2], 'one exercise gains at most 1 set; the extra set follows the last set');
   eq([T.srcIdx([null, {}, null], 2), T.srcIdx([null], 0)], [1, -1], 'srcIdx finds the nearest earlier result'); }
 { // typing a new weight re-plans the reps at the same estimated max
   const x = { side: false, bar: 0 }, t = { w: 60, r: 10, pw: 60, pr: 10 };
@@ -435,7 +438,7 @@ eq(T.prioDelta(0, 'emph', 0, null), 1, 'emphasize adds when nothing else would')
 eq(T.prioDelta(1, 'emph', 2, 1), 1, 'emphasize does not push a muscle that recovered just in time');
 eq(T.prioDelta(1, 'emph', 1, 2), 1, 'or one that is near its volume limit');
 eq(T.prioDelta(-2, 'emph', 3, 3), -2, 'emphasize still removes sets when it is too much');
-eq(T.prioDelta(3, 'emph', 0, 0), 3, 'never more than 3');
+eq(T.prioDelta(2, 'emph', 0, 0), 3, 'no muscle-wide cap: distribute limits each exercise to 1 set');
 eq(T.prioDelta(2, 'maint', 0, 0), 0, 'maintain never adds');
 eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
 { T.S = T.seedState(); T.normalize();
@@ -445,7 +448,7 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   const s2 = T.buildSession(m, 2, 0); s2.fb = { quads: { sor: 0 } }; T.applyMuscle(m, s2, 'quads');
   eq([s2.fb.quads.delta, s2.exs.map(x => x.sets.length)], [0, [3, 3]], 'maintain keeps sets even when feedback says add');
   m.prio = { quads: 'emph' }; const s3 = T.buildSession(m, 2, 0); s3.fb = { quads: { sor: 0 } }; T.applyMuscle(m, s3, 'quads');
-  eq(s3.fb.quads.delta, 3, 'emphasize on the same feedback adds the most'); }
+  eq([s3.fb.quads.delta, s3.exs.map(x => x.sets.length)], [2, [4, 4]], 'emphasize adds one more, still at most 1 per exercise'); }
 
 { const v3 = { v: 1, libv: 3, prefs: { unit: 'lb' }, exercises: [{ id: 'leg-press', name: 'Leg Press', muscle: 'quads', equip: 'Machine', lo: 10, hi: 15, inc: 10 }], templates: [], mesos: [] };
   eq(T.upgradeLib(v3), true, 'a version-3 account upgrades');
@@ -555,5 +558,18 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   [[100, 0], [120, 4000], [140, 10000], [0, 11000], [250, 12000], [110, 21000]].forEach(([b, t]) => T.addHr(s, b, t));
   eq([s.hr.n, s.hr.max, T.hrAvg(s.hr)], [4, 140, 118], 'out-of-range readings skipped; avg and peak');
   eq(s.hr.pts, [100, 140, 110], 'one stored point per 10 s'); }
+{ // one workout day's answers never change another day's sets
+  T.S = T.seedState(); T.normalize();
+  const m = { id: 'sd', name: 'sd', weeks: 5, start: '2026-11-02', days: [{ name: 'Tue', weekday: 1, items: [{ exId: 'dumbbell-curl-alternating', sets: 3 }] }, { name: 'Sat', weekday: 5, items: [{ exId: 'dumbbell-curl-alternating', sets: 2 }] }], sessions: {}, created: 13, template: 'x', prio: {} };
+  T.S.mesos.push(m);
+  const tue = T.buildSession(m, 1, 0), sat = T.buildSession(m, 1, 1);
+  [tue, sat].forEach(s => { s.exs.forEach(x => x.sets.forEach(t => { t.w = 20; t.r = 10; t.done = true; })); s.done = true; m.sessions[s.key] = s; });
+  tue.fb = { biceps: { pump: 0, vol: 0 } }; sat.fb = { biceps: { pump: 1, vol: 1 } };
+  const sat2 = T.buildSession(m, 2, 1); sat2.fb.biceps = { sor: 0 }; T.applyMuscle(m, sat2, 'biceps');
+  eq([sat2.fb.biceps.delta, sat2.exs[0].sets.length], [0, 2], 'Saturday follows last Saturday only, not Tuesday');
+  const tue2 = T.buildSession(m, 2, 0); tue2.fb.biceps = { sor: 0 }; T.applyMuscle(m, tue2, 'biceps');
+  eq([tue2.fb.biceps.delta, tue2.exs[0].sets.length], [2, 4], 'Tuesday follows last Tuesday (+1, the most one exercise moves)');
+  tue2.exs.forEach(x => x.sets.forEach(t => { t.w = 20; t.r = 10; t.done = true; })); tue2.done = true; m.sessions[tue2.key] = tue2;
+  eq(T.buildSession(m, 3, 1).exs[0].sets.length, 2, 'Saturday\'s base set count comes from last Saturday, not Tuesday'); }
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);

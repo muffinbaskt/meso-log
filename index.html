@@ -75,6 +75,7 @@ h1,h2,h3{margin:0;font-family:var(--font-display);font-weight:700;letter-spacing
 .chips{display:flex;gap:8px;flex-wrap:wrap;padding-block:10px 0}
 .chip{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:6px;background:var(--surface2);color:var(--muted)}
 .chip.hot{background:var(--accent-soft);color:var(--accent)}
+.chip.rec{background:var(--bad);color:var(--accent-ink)}
 
 /* muscle badge */
 .mb+.mb{margin-left:6px}
@@ -756,19 +757,24 @@ function lastPerf(exId,m,beforeOrd){
   const sets=pick.x.sets.map(t=>t.done&&t.w>0&&t.r>0&&(!reg.length||!t.ty)?{tot:T(t),r:t.r}:null);
   return {tot:T(best),r:best.r,rir:rirFor(pick.mm,pick.s.wk),sets,from:{meso:pick.mm.name,quick:!!pick.mm.quick,wk:pick.s.wk,di:pick.s.di,date:pick.s.date||null,day:(pick.mm.days[pick.s.di]||{}).name||''}};
 }
-function prevWith(m,exId,o){
-  let hit=null;
+/* Latest earlier session with this exercise logged. sameDay: prefer the same workout day (o%100 is the day index),
+   so an exercise done Monday and Friday takes Friday's set count from last Friday; any day is the fallback. */
+function prevWith(m,exId,o,sameDay){
+  let hit=null,day=null;
   for(const s of Object.values(m.sessions)){
     if(ord(s)>=o||isDl(m,s.wk))continue;
     const x=s.exs.find(e=>e.exId===exId);if(!x||!x.sets.some(t=>t.done))continue;
     if(!hit||ord(s)>ord(hit.s))hit={s,x};
+    if(sameDay&&s.di===o%100&&(!day||ord(s)>ord(day.s)))day={s,x};
   }
-  return hit;
+  return day||hit;
 }
-function prevMuscle(m,muscle,o){
+/* Latest earlier session where this muscle was logged. sameDay: only the same workout day, so feedback from one day
+   never changes another (Wednesday's glutes don't move Sunday's). */
+function prevMuscle(m,muscle,o,sameDay){
   let hit=null;
   for(const s of Object.values(m.sessions)){
-    if(ord(s)>=o)continue;
+    if(ord(s)>=o||(sameDay&&s.di!==o%100))continue;
     if(!s.exs.some(x=>ex(x.exId)?.muscle===muscle&&x.sets.some(t=>t.done)))continue;
     if(!hit||ord(s)>ord(hit))hit=s;
   }
@@ -816,19 +822,24 @@ const PRIO_V=['emph','grow','maint'];
 function prioDelta(d,p,sor,vol){
   if(p==='emph'&&d>=0&&sor<=1&&(vol==null||vol<=1))d+=1;
   if(p==='maint')d=Math.min(d,0);
-  return Math.max(-3,Math.min(3,d));
+  return d;
 }
 const prioOf=(m,mu)=>(m&&m.prio&&m.prio[mu])||'grow';
+/* Set change for a muscle. Soreness can only take a set off (still sore = -1; it can come from another day, so it
+   never adds). Pump and volume come from the same workout day last week. Low pump adds 1 only when not sore. */
+const SORE_D=[0,0,0,-1],VOL_D=[1,0,-1,-2];
 function setDelta(sor,pump,vol){
-  let d=[2,1,0,-2][sor];
-  if(vol!=null)d+=[1,0,-1,-2][vol];
+  let d=SORE_D[sor];
+  if(vol!=null)d+=VOL_D[vol];
   if(pump===0&&sor<=1)d+=1;
-  return Math.max(-3,Math.min(3,d));
+  return d;
 }
+/* Spreads a muscle's change over its exercises: each exercise moves at most 1 set from its own base (cap 6, floor 1).
+   Added sets go to the exercise with the fewest, removed ones come from the most. Whatever doesn't fit is dropped. */
 function distribute(bases,delta){
-  const c=bases.slice();
-  while(delta>0&&c.some(x=>x<6)){const m=Math.min(...c.filter(x=>x<6));c[c.indexOf(m)]++;delta--}
-  while(delta<0&&c.some(x=>x>1)){const m=Math.max(...c);c[c.lastIndexOf(m)]--;delta++}
+  const c=bases.slice(),up=i=>c[i]<6&&c[i]<bases[i]+1,dn=i=>c[i]>1&&c[i]>bases[i]-1;
+  while(delta>0){const ok=c.map((_,i)=>i).filter(up);if(!ok.length)break;const i=ok.reduce((a,b)=>c[b]<c[a]?b:a);c[i]++;delta--}
+  while(delta<0){const ok=c.map((_,i)=>i).filter(dn);if(!ok.length)break;const i=ok.reduce((a,b)=>c[b]>=c[a]?b:a);c[i]--;delta++}
   return c;
 }
 function resize(x,n,pl){
@@ -840,7 +851,7 @@ function resize(x,n,pl){
 }
 function applyMuscle(m,s,muscle){
   const fb=s.fb[muscle];if(m.quick||!fb||fb.sor==null||isDl(m,s.wk))return;
-  const prev=prevMuscle(m,muscle,ord(s));const pf=(prev&&prev.fb&&prev.fb[muscle])||{};
+  const prev=prevMuscle(m,muscle,ord(s),true);const pf=(prev&&prev.fb&&prev.fb[muscle])||{};
   fb.delta=prioDelta(setDelta(fb.sor,pf.pump,pf.vol),prioOf(m,muscle),fb.sor,pf.vol);
   const xs=s.exs.filter(x=>!x.ivl&&ex(x.exId)?.muscle===muscle);   // interval rounds are fixed by their own plan
   const counts=distribute(xs.map(x=>x.base),fb.delta);
@@ -851,7 +862,7 @@ function srcIdx(a,i){for(let j=Math.min(i,a.length-1);j>=0;j--)if(a[j])return j;
 function makeEx(m,wk,di,exId,tplSets){
   const e=ex(exId),o=(wk-1)*100+di,dl=isDl(m,wk),lp=lastPerf(exId,m,o),t=m.quick?(lp?lp.rir:QUICK_RIR):rirFor(m,wk);
   if(e.ivl)return ivlEx(e,m,o,dl);
-  const prev=prevWith(m,exId,o);let base=prev?(prev.x.planned||prev.x.sets.length):tplSets;let swap=false;
+  const prev=prevWith(m,exId,o,true);let base=prev?(prev.x.planned||prev.x.sets.length):tplSets;let swap=false;
   if(prev&&prev.x.joint>=2){base=Math.max(1,base-1);swap=prev.x.joint>=3}
   if(dl)base=Math.max(1,Math.ceil(base*0.5));
   const mode=loadMode(e),p=planLoad(e,lp,t,dl,mode);
@@ -888,18 +899,17 @@ function replanEx(m,s,x){
 /* Behind the scenes (secret nerd menu): rebuilds why a workout looks the way it does, from the same rules.
    explainMuscle: the set change for one muscle, part by part. explainEx: where one exercise's sets and numbers came from. */
 function explainMuscle(m,s,mu){
-  const fb=s.fb[mu]||{},prev=prevMuscle(m,mu,ord(s)),pf=(prev&&prev.fb&&prev.fb[mu])||{},p=prioOf(m,mu),out={mu,prio:p,dl:isDl(m,s.wk),quick:!!m.quick,
+  const fb=s.fb[mu]||{},prev=prevMuscle(m,mu,ord(s),true),pf=(prev&&prev.fb&&prev.fb[mu])||{},p=prioOf(m,mu),out={mu,prio:p,dl:isDl(m,s.wk),quick:!!m.quick,
     sor:fb.sor??null,auto:!!fb.auto,skip:!!fb.skip,applied:fb.delta??null,prev:prev?{wk:prev.wk,di:prev.di,date:prev.date||null,day:(m.days[prev.di]||{}).name||''}:null,pump:pf.pump??null,vol:pf.vol??null,parts:[]};
   if(out.sor==null||out.dl||out.quick)return out;
-  let d=[2,1,0,-2][out.sor];out.parts.push({k:'sor',v:d});
-  if(out.vol!=null){const v=[1,0,-1,-2][out.vol];d+=v;out.parts.push({k:'vol',v})}
+  let d=SORE_D[out.sor];out.parts.push({k:'sor',v:d});
+  if(out.vol!=null){const v=VOL_D[out.vol];d+=v;out.parts.push({k:'vol',v})}
   if(out.pump===0&&out.sor<=1){d+=1;out.parts.push({k:'pump',v:1})}
-  const c=Math.max(-3,Math.min(3,d));if(c!==d)out.parts.push({k:'clamp',v:c-d});d=c;
   const pd=prioDelta(d,p,out.sor,out.vol);if(pd!==d)out.parts.push({k:'prio',v:pd-d});
   out.total=pd;return out;
 }
 function explainEx(m,s,x){
-  const e=ex(x.exId)||{},o=ord(s),dl=isDl(m,s.wk),lp=lastPerf(x.exId,m,o),t=m.quick?(lp?lp.rir:QUICK_RIR):rirFor(m,s.wk),prev=prevWith(m,x.exId,o);
+  const e=ex(x.exId)||{},o=ord(s),dl=isDl(m,s.wk),lp=lastPerf(x.exId,m,o),t=m.quick?(lp?lp.rir:QUICK_RIR):rirFor(m,s.wk),prev=prevWith(m,x.exId,o,true);
   const out={name:e.name||'?',ivl:!!x.ivl,t,dl,base:x.base,planned:x.planned??x.sets.length,now:x.sets.length,
     prev:prev?{wk:prev.s.wk,di:prev.s.di,date:prev.s.date||null,sets:prev.x.planned||prev.x.sets.length,joint:prev.x.joint??null}:null,
     from:lp&&lp.from,best:lp?{tot:lp.tot,r:lp.r,rir:lp.rir}:null,abw:x.abw??null,sets:[]};
@@ -1222,7 +1232,7 @@ function curSession(){
   if(!ui.tmp||ui.tmp.mid!==m.id||ui.tmp.key!==key)ui.tmp={mid:m.id,key,s:buildSession(m,ui.wk,ui.di)};
   return ui.tmp.s;
 }
-function commit(s){const m=meso();if(!m.sessions[s.key])m.sessions[s.key]=s;mark('meso:'+m.id)}
+function commit(s){const m=meso();if(!m.sessions[s.key])m.sessions[s.key]=s;mark('meso:'+m.id);try{hrArm()}catch(e){}}   // hrArm: auto-stop heart rate logging once every set is checked
 function gotoPending(){const m=meso();if(!m)return;const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null}
 
 /* ---------- views ---------- */
@@ -1261,7 +1271,7 @@ function viewWorkout(){
   if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No mesocycle yet</h2><p>Pick a template and start a training block. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">Start a mesocycle</button><p style="margin-top:22px">Just want to try it out? Log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
   const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=isDl(m,ui.wk),c=sessCounts(s);
   let h=m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div>'+restBtn()+'<button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div>'+restBtn()+'<button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
-  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">'+(s.skipped?'Skipped ':'Finished ')+esc(s.date||'')+'</span>':'')+(HR.dev&&!s.done?'<span class="chip hot" id="hrchip">♥ '+(HR.bpm??'–')+'</span>':'')+(s.hr&&s.hr.n?'<span class="chip">Avg ♥ '+hrAvg(s.hr)+' · peak '+s.hr.max+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
+  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Deload week</span>':'')+'<span class="chip hot">Target '+rirLabel(rir)+' RIR'+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">'+(s.skipped?'Skipped ':'Finished ')+esc(s.date||'')+'</span>':'')+(HR.dev&&!s.done?'<span class="chip hot'+(hrLogging(s)?' rec':'')+'" id="hrchip">'+hrChipText(s)+'</span>':'')+(s.hr&&s.hr.n?'<span class="chip">Avg ♥ '+hrAvg(s.hr)+' · peak '+s.hr.max+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
   let last=null,letter=0;
   const head=(x,ei,tag)=>{const e=ex(x.exId);
     let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+(s.done&&!x.sets.some(t=>t.done)?'<span class="tag skip">Skipped</span>':'')+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p>'+(hasNote(x)?((d)=>'<button class="notechip'+(d?' due':'')+'" data-act="noteopen">'+I.note+(d?'Read note':'Note')+'</button>')(noteDue(s,ei)):'')+'</div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
@@ -1500,7 +1510,7 @@ function postSheet(s,mu,edit){
   let h='<h2>'+(edit?esc(mn)+' feedback':'Feedback')+'</h2>'+(edit?'<p style="color:var(--muted);margin-top:0">Change any answer. Pump and volume are for the whole muscle today; they set next time’s sets.</p>':'');
   xs.forEach((x,i)=>{h+='<div class="q"><b>Joint pain</b><span>How did your joints feel during '+esc(ex(x.exId).name)+'?</span><div class="opts">'+['None','Mild','Moderate','Severe'].map((t,k)=>'<button class="opt'+on(f.joint[i],k)+'" data-act="fbj" data-i="'+i+'" data-v="'+k+'">'+t+'</button>').join('')+'</div></div>'});
   h+='<div class="q"><b>'+esc(mn)+' pump</b><span>How much of a pump did your '+esc(low)+' get today?</span><div class="opts">'+['Low','Moderate','Great'].map((t,k)=>'<button class="opt'+on(f.pump,k)+'" data-act="fbp" data-v="'+k+'">'+t+'</button>').join('')+'</div></div>';
-  h+='<div class="q"><b>'+esc(mn)+' volume</b><span>How was the number of hard sets for your '+esc(low)+'?</span><div class="opts">'+['Not enough','Just right','Near my limit','Too much'].map((t,k)=>'<button class="opt'+on(f.vol,k)+'" data-act="fbv" data-v="'+k+'">'+t+'</button>').join('')+'</div></div>';
+  h+='<div class="q"><b>'+esc(mn)+' volume</b><span>How was the number of hard sets for your '+esc(low)+'? Count the time it took too: too long for your schedule is too much. This only changes this same workout day next week.</span><div class="opts">'+['Not enough','Just right','Near my limit','Too much'].map((t,k)=>'<button class="opt'+on(f.vol,k)+'" data-act="fbv" data-v="'+k+'">'+t+'</button>').join('')+'</div></div>';
   h+='<div class="foot"><button class="btn" data-act="close">'+(edit?'Cancel':'Not now')+'</button><button class="btn pri" id="fbsave" data-act="fbsavepost"'+(postReady()?'':' disabled')+'>Save</button></div>';
   sheet(h);
 }
@@ -1737,10 +1747,10 @@ function nerdSheet(){
     h+='<h3>'+mn+'</h3>';
     if(!m.quick&&!em.dl){
       h+='<p>Soreness: <b>'+(em.sor!=null?SORE_LBL[em.sor]+(em.auto?' (from your daily check-ins)':' (you answered)'):em.skip?'skipped':(muscleHasDone(s,mu)?'not answered':'not known yet: the change waits for today’s check-in or your first set'))+'</b></p>';
-      h+='<p>Last '+mn.toLowerCase()+' workout: <b>'+(em.prev?sref(em.prev)+', pump '+(em.pump!=null?['Low','Moderate','Great'][em.pump]:'not answered')+', volume '+(em.vol!=null?['Not enough','Just right','Near my limit','Too much'][em.vol]:'not answered'):'none earlier in this mesocycle (no set change)')+'</b></p>';
+      h+='<p>Last '+mn.toLowerCase()+' on this workout day: <b>'+(em.prev?sref(em.prev)+', pump '+(em.pump!=null?['Low','Moderate','Great'][em.pump]:'not answered')+', volume '+(em.vol!=null?['Not enough','Just right','Near my limit','Too much'][em.vol]:'not answered'):'none earlier on this day in this plan (only soreness can change sets)')+'</b></p>';
       h+='<p>Priority: <b>'+({emph:'Emphasize',grow:'Grow',maint:'Maintain'}[em.prio])+'</b></p>';
-      if(em.parts.length){const L={sor:'soreness',vol:'volume',pump:'low pump while fresh',clamp:'capped at ±3',prio:'priority'};
-        h+='<p>Set change: <b class="nm">'+em.parts.map(q=>sgn(q.v)+' '+L[q.k]).join(' · ')+' = '+sgn(em.total)+' set'+(Math.abs(em.total)===1?'':'s')+'</b>'+(em.applied!=null&&em.applied!==em.total?' (applied: '+sgn(em.applied)+')':'')+'. Added sets go to the '+mn.toLowerCase()+' exercise with the fewest sets (max 6); removed ones come from the one with the most (min 1).</p>'}
+      if(em.parts.length){const L={sor:'soreness',vol:'volume',pump:'low pump while fresh',prio:'priority'};
+        h+='<p>Set change: <b class="nm">'+em.parts.map(q=>sgn(q.v)+' '+L[q.k]).join(' · ')+' = '+sgn(em.total)+' set'+(Math.abs(em.total)===1?'':'s')+'</b>'+(em.applied!=null&&em.applied!==em.total?' (applied: '+sgn(em.applied)+')':'')+'. Each exercise moves at most 1 set from its start. Added sets go to the '+mn.toLowerCase()+' exercise with the fewest sets (max 6), removed ones come from the one with the most (min 1); what doesn’t fit is dropped. Soreness can only take sets off.</p>'}
     }
     s.exs.forEach((x,i)=>{if(muscleOf(x)!==mu)return;const ee=explainEx(m,s,x),e=ex(x.exId)||{};
       h+='<h4>'+esc(ee.name)+'</h4>';
@@ -1756,7 +1766,10 @@ function nerdSheet(){
     });
   }
   sheet(h+'</div>','tall')}
-const HR={dev:null,bpm:null,saved:0};
+/* Heart rate, in two steps. Connect only shows the live reading (#hrchip). "Start logging" records into the workout that
+   was open (HR.log = {mid, key}), even if another day is viewed meanwhile. Logging stops 60 s after every set of that
+   workout is checked (HR.stopAt; cleared if a set is unchecked or added), on Finish, on Stop logging or on disconnect. */
+const HR={dev:null,bpm:null,saved:0,log:null,stopAt:0,stopT:0};
 const hrOK=()=>!!(navigator.bluetooth&&navigator.bluetooth.requestDevice);
 /* Connect: the picker first (cancelling it is silent), then up to 3 tries at the connection, each capped at 15 s,
    since Android often fails the first GATT connect. Handlers are set as properties, not added, so reconnecting the same
@@ -1779,11 +1792,29 @@ async function hrConnect(){
     toast('Could not connect: '+((err&&(err.message||err.name))||'unknown error')+'. If another app is connected to '+nm+', close it, then try again.',10000);return}
   dev.ongattserverdisconnected=hrLost;HR.dev=dev;toast('Heart rate connected');render()
 }
-function hrLost(){if(!HR.dev)return;HR.dev=null;HR.bpm=null;toast('Heart rate disconnected');render()}
-function hrStop(){const d=HR.dev;HR.dev=null;HR.bpm=null;if(d&&d.gatt.connected)d.gatt.disconnect();render()}
-function hrValue(b){HR.bpm=b;const el=$('#hrchip');if(el)el.textContent='♥ '+b;
-  const m=meso(),s=m&&curSession();if(!s||s.done)return;const now=Date.now();
-  if(addHr(s,b,now)&&now-HR.saved>15000){HR.saved=now;commit(s)}}
+function hrLost(){if(!HR.dev)return;hrLogStop(true);HR.dev=null;HR.bpm=null;toast('Heart rate disconnected');render()}
+const hrLogging=s=>!!(HR.log&&s&&meso()&&HR.log.mid===meso().id&&HR.log.key===s.key);
+const hrChipText=s=>'♥ '+(HR.bpm??'–')+(hrLogging(s)?' · logging':'');
+function hrLogSession(){const L=HR.log;if(!L)return null;const m=S.mesos.find(z=>z.id===L.mid);return m&&m.sessions[L.key]?{m,s:m.sessions[L.key]}:null}
+function hrLogStart(){const m=meso(),s=curSession();if(!m||!s||s.done||!HR.dev)return;
+  if(!s.date)s.date=today();commit(s);HR.log={mid:m.id,key:s.key};HR.saved=0;hrArm();toast('Logging heart rate');render()}
+function hrLogStop(quiet){const L=hrLogSession();clearTimeout(HR.stopT);HR.stopAt=0;if(!HR.log)return;HR.log=null;
+  if(L)mark('meso:'+L.m.id);if(!quiet)toast('Heart rate logging stopped');render()}
+// Called after any set change: if every set of the logging workout is checked, stop logging in 60 s; otherwise cancel that.
+function hrArm(){const L=hrLogSession();if(!L){clearTimeout(HR.stopT);HR.stopAt=0;return}
+  const all=L.s.exs.length&&L.s.exs.every(x=>x.sets.every(t=>t.done));
+  if(all&&!HR.stopAt){HR.stopAt=Date.now()+60000;clearTimeout(HR.stopT);HR.stopT=setTimeout(()=>{if(HR.stopAt&&Date.now()>=HR.stopAt-50)hrLogStop()},60000)}
+  else if(!all&&HR.stopAt){clearTimeout(HR.stopT);HR.stopAt=0}}
+function hrItems(){if(!hrOK())return '';const s=curSession(),done=s&&s.done;let h='';
+  if(!HR.dev)return done?'':'<button class="li" data-act="hron">'+I.heart+'Connect heart rate</button>';
+  if(hrLogging(s))h+='<button class="li" data-act="hrlogoff">'+I.heart+'Stop logging heart rate</button>';
+  else if(!done)h+='<button class="li" data-act="hrlogon">'+I.heart+(HR.log?'Log heart rate here instead':'Start logging heart rate')+'</button>';
+  return h+'<button class="li" data-act="hroff">'+I.heart+'Disconnect heart rate</button>'}
+function hrStop(){hrLogStop(true);const d=HR.dev;HR.dev=null;HR.bpm=null;if(d&&d.gatt.connected)d.gatt.disconnect();render()}
+function hrValue(b){HR.bpm=b;const el=$('#hrchip');if(el)el.textContent=hrChipText(curSession());
+  const L=hrLogSession();if(!L)return;if(L.s.done){hrLogStop(true);return}const now=Date.now();
+  if(HR.stopAt&&now>=HR.stopAt){hrLogStop();return}
+  if(addHr(L.s,b,now)&&now-HR.saved>15000){HR.saved=now;mark('meso:'+L.m.id)}}
 // A short fireworks show over the screen when a workout is finished: plain bursts plus one rocket that explodes into a
 // cheer word. Skipped for reduced-motion users; taps pass through.
 const CHEERS=['Success','Most The Good','Yay','The Best!'];
@@ -1842,7 +1873,7 @@ function fireworks(){
     x.globalAlpha=1;
     if(t<END||R.some(r=>r.up)||P.some(q=>q.l>0))requestAnimationFrame(frame);else{c.remove();snd&&snd.close()}})(t0);
 }
-function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;restStop();s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
+function saveDone(skip){const s=curSession(),m=meso();ui.justDone=true;restStop();if(hrLogging(s))hrLogStop(true);s.done=true;if(skip)s.skipped=true;else delete s.skipped;if(!s.date)s.date=today();commit(s);closeSheet();const p=nextPending(m);ui.wk=p.wk;ui.di=p.di;ui.tmp=null;render();window.scrollTo(0,0);toast(skip?'Workout skipped':'Workout saved');if(!skip)fireworks()}
 function confirmSheet(title,msg,act,id){sheet('<h2>'+esc(title)+'</h2><p style="color:var(--muted)">'+esc(msg)+'</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="'+act+'" data-id="'+esc(id||'')+'">Confirm</button></div>')}
 
 /* ---------- action handlers ---------- */
@@ -1963,6 +1994,8 @@ cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" 
 goto(el){ui.wk=+el.dataset.wk;ui.di=+el.dataset.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0)},
 hron(){closeSheet();hrConnect()},   // still inside the tap, which the device picker requires
 hroff(){closeSheet();hrStop()},
+hrlogon(){closeSheet();hrLogStart()},
+hrlogoff(){closeSheet();hrLogStop()},
 restopen(){restSheet()},
 restonoff(el){const r=restPrefs();r.on=!r.on;restSave(r);el.classList.toggle('on',r.on);el.setAttribute('aria-checked',r.on);if(!r.on)restStop();render()},
 restadj(el){const r=restPrefs();r.secs=Math.max(15,Math.min(900,r.secs+ +el.dataset.v));restSave(r);restSheet()},
@@ -1976,11 +2009,11 @@ nerdtap(){const n=Date.now();ui.nt=(ui.nt&&n-ui.ntl<1500?ui.nt:0)+1;ui.ntl=n;if(
   toast(on?'Behind the scenes unlocked: find it in the workout menu':'Behind the scenes hidden')},
 nerd(){nerdSheet()},
 update(el){el.disabled=true;el.textContent='Updating…';Promise.race([flush(),new Promise(r=>setTimeout(r,2500))]).finally(()=>location.reload())},
-sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(curSession().done?'':'<button class="li" data-act="finish">'+I.check+'Finish workout</button>')+'<button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(hrOK()&&(HR.dev||!curSession().done)?'<button class="li" data-act="'+(HR.dev?'hroff':'hron')+'">'+I.heart+(HR.dev?'Disconnect heart rate':'Connect heart rate')+'</button>':'')+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="delmeso" data-id="'+meso().id+'">'+I.trash+'Discard workout</button></div>');return}
-  sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(hrOK()&&(HR.dev||!curSession().done)?'<button class="li" data-act="'+(HR.dev?'hroff':'hron')+'">'+I.heart+(HR.dev?'Disconnect heart rate':'Connect heart rate')+'</button>':'')+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
+sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(curSession().done?'':'<button class="li" data-act="finish">'+I.check+'Finish workout</button>')+'<button class="li" data-act="daynote">'+I.note+'Workout note</button>'+hrItems()+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="delmeso" data-id="'+meso().id+'">'+I.trash+'Discard workout</button></div>');return}
+  sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button>'+hrItems()+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();
   if(m.quick){if(!sessCounts(s).d){ACT.dodelmeso({dataset:{id:m.id}});toast('Nothing logged, so nothing saved');return}
-    restStop();s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');fireworks();return}
+    restStop();if(hrLogging(s))hrLogStop(true);s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');fireworks();return}
   if(!sessCounts(s).d){sheet('<h2>Skip this workout?</h2><p style="color:var(--muted)">Nothing is logged yet. It will show as skipped in the calendar and nothing goes into your history. Next week’s weights and sets carry on from the last time you trained.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="doskip">Skip workout</button></div>');return}
   saveDone(false)},
 doskip(){saveDone(true)},
