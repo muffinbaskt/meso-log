@@ -304,6 +304,20 @@ body.resting .toast{bottom:calc(136px + env(safe-area-inset-bottom,0px))}
 .rpre{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .rpre button{padding:8px 14px;border-radius:18px;background:var(--surface2);font-weight:700;color:var(--fg)}
 .rpre button.on{background:var(--accent);color:var(--accent-ink)}
+.npdays button{min-width:56px;padding:12px 10px}
+.tour{min-height:min(560px,80vh);display:flex;flex-direction:column}
+.tour .tc{flex:1}
+.tour h2{margin-top:6px}
+.tour .tp{color:var(--muted);margin:6px 0 0}
+.tour .demo{margin:16px 0 4px;padding:12px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}
+.tour .demo .ex{margin:0}
+.tour .dots{display:flex;justify-content:center;gap:6px;margin-top:16px}
+.tour .dots i{width:7px;height:7px;border-radius:50%;background:var(--line)}
+.tour .dots i.on{background:var(--accent);width:18px;border-radius:4px}
+.tour .wk{display:flex;align-items:center;gap:8px;padding:8px 0;font-size:15px}
+.tour .wk b{min-width:64px}
+.tour .arrow{text-align:center;color:var(--muted);font-size:20px;line-height:1}
+.tour .pill{position:static;transform:none;display:inline-flex;margin:4px auto 0}
 .ts:empty{display:none}.ts{margin:4px 0 12px;min-height:0}
 .signin{max-width:420px;margin:0 auto;padding:72px 20px 40px}
 .signin h1{font-size:40px;text-transform:uppercase;line-height:1;margin:0}
@@ -1027,6 +1041,8 @@ function copyDays(src){return src.days.map((d,di)=>{const last={};
   for(const s of Object.values(src.sessions)){if(s.di!==di||isDl(src,s.wk))continue;
     for(const x of s.exs){if(!x.sets.some(t=>t.done))continue;const k=ord(s);if(!last[x.exId]||k>last[x.exId].k)last[x.exId]={k,n:x.planned||x.sets.length}}}
   return {name:d.name,weekday:d.weekday,items:d.items.map(i=>({exId:i.exId,sets:last[i.exId]?Math.min(6,Math.max(1,last[i.exId].n)):i.sets,...(i.ss?{ss:true}:{})}))}})}
+// Empty days on the chosen weekdays (0 = Monday), in week order, named Day 1, Day 2...
+function pickDays(wds){return [...new Set(wds)].sort((a,b)=>a-b).map((wd,i)=>({name:'Day '+(i+1),weekday:wd,items:[]}))}
 function blankDays(n){return BLANK_WD[n].map((wd,i)=>({name:'Day '+(i+1),weekday:wd,items:[]}))}
 function syncDay(m,s){if(m&&m.blank)m.days[s.di].items=s.exs.map(x=>({exId:x.exId,sets:x.base||x.sets.length,...(x.ss?{ss:true}:{})}))}
 function quickMeso(ret){const d=new Date();
@@ -1100,13 +1116,15 @@ const sessCounts=s=>{let d=0,t=0;for(const x of s.exs){t+=x.sets.length;d+=x.set
 const SB_URL='https://zatngvydcqwlilmhafxj.supabase.co';
 const SB_KEY='sb_publishable_1Vt9AiHDJd6eVuGxOuqw1Q_bKeqDNG6';
 const LSKEY='meso-log-v1',LSOWNER='meso-log-owner',LSMODE='meso-log-mode';
+let PRAC=null;   // practice workout sandbox: {S (the real data), tab, wk, di} while one is open
 let sb=null,USER=null,READY=false,STATUS='local',dirty=new Set(),saveT=null,flushing=false,again=false,lastErr=null;
 const coreData=()=>({v:S.v,libv:S.libv,prefs:S.prefs,exercises:S.exercises,templates:S.templates,activeMeso:S.activeMeso,track:S.track||{},mesoIds:S.mesos.map(m=>m.id)});
 const clone=o=>JSON.parse(JSON.stringify(o));
 const ok=r=>{if(r.error)throw r.error;return r.data};
-function saveLocal(){try{localStorage.setItem(LSKEY,JSON.stringify(S));if(USER&&READY)localStorage.setItem(LSOWNER,USER.id)}catch(e){}}
-function mark(...k){k.forEach(x=>dirty.add(x));clearTimeout(saveT);saveT=setTimeout(flush,700);saveLocal()}
+function saveLocal(){if(PRAC)return;try{localStorage.setItem(LSKEY,JSON.stringify(S));if(USER&&READY)localStorage.setItem(LSOWNER,USER.id)}catch(e){}}
+function mark(...k){if(PRAC)return;k.forEach(x=>dirty.add(x));clearTimeout(saveT);saveT=setTimeout(flush,700);saveLocal()}
 async function flush(){
+  if(PRAC)return;   // practice workout: nothing is saved or synced until it ends
   clearTimeout(saveT);
   saveLocal();
   if(!USER||!READY||!dirty.size)return;
@@ -1276,10 +1294,10 @@ function tabbar(){
 }
 function viewWorkout(){
   const m=meso();
-  if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No plan yet</h2><p>Make a plan: pick your workout days and add your exercises. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">New plan</button><p style="margin-top:22px">Just want to try it out? Log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
+  if(!m)return '<div class="gut">'+soreBanner()+'</div><div class="empty gut" style="padding-top:60px"><h2>No plan yet</h2><p>Make a plan: pick your workout days and add your exercises. Your sets, reps and feedback get logged here.</p><button class="btn pri" style="margin-top:14px" data-act="newmeso">New plan</button><p style="margin-top:22px">New here? See how it works, or try a practice workout. Nothing in it is saved.</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px"><button class="btn" data-act="tour">How it works</button><button class="btn" data-act="practice">Practice workout</button></div><p style="margin-top:22px">Or log a one-off workout, no plan needed.</p><button class="btn" style="margin-top:8px" data-act="quick">Quick workout</button></div>';
   const s=curSession(),day=m.days[ui.di],rir=rirFor(m,ui.wk),dl=isDl(m,ui.wk),c=sessCounts(s);
-  let h=m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div>'+hrBtn()+restBtn()+'<button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div>'+hrBtn()+restBtn()+'<button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
-  h+='<div class="gut">'+soreBanner()+'<div class="chips">'+(m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Recovery week</span>':'')+'<span class="chip hot">'+tankLabel(rir)+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">'+(s.skipped?'Skipped ':'Finished ')+esc(s.date||'')+'</span>':'')+(HR.dev&&!s.done?'<span class="chip hot'+(hrLogging(s)?' rec':'')+'" id="hrchip">'+hrChipText(s)+'</span>':'')+(s.hr&&s.hr.n?'<span class="chip">Avg ♥ '+hrAvg(s.hr)+' · peak '+s.hr.max+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
+  let h=m.practice?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Practice workout</h1><div class="sub">Try it out. Nothing here is saved.</div></div>'+restBtn()+'<button class="ib" data-act="pracexit" aria-label="Close practice workout">'+I.x+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':m.quick?'<header class="top"><div class="top-in gut"><div class="grow"><h1>Quick workout</h1><div class="sub">'+esc(s.date||m.start)+' · no plan, logged to history</div></div>'+hrBtn()+restBtn()+'<button class="ib" data-act="quickclose" aria-label="Close quick workout">'+I.x+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>':'<header class="top"><div class="top-in gut"><div class="grow"><h1>Week '+ui.wk+' <span>Day '+(ui.di+1)+'</span></h1><div class="sub">'+esc(WD[day.weekday])+' · '+esc(day.name)+' · '+esc(m.name)+'</div></div>'+hrBtn()+restBtn()+'<button class="ib" data-act="cal" aria-label="Pick day">'+I.cal+'</button><button class="ib" data-act="sessmenu" aria-label="Workout menu">'+I.kebab+'</button></div><div class="prog"><i id="prog" style="width:'+(c.t?c.d/c.t*100:0)+'%"></i></div></header>';
+  h+='<div class="gut">'+(m.practice?'':soreBanner())+'<div class="chips">'+(m.practice?'<span class="chip hot">Practice: tap ✓ to log a set</span>':m.quick?'<span class="chip">Weights start from your last logged set</span>':'')+(m.quick?'':(dl?'<span class="chip hot">Recovery week</span>':'')+'<span class="chip hot">'+tankLabel(rir)+(rir===0.5?' · test week':'')+'</span>')+(s.done?'<span class="chip">'+(s.skipped?'Skipped ':'Finished ')+esc(s.date||'')+'</span>':'')+(HR.dev&&!s.done?'<span class="chip hot'+(hrLogging(s)?' rec':'')+'" id="hrchip">'+hrChipText(s)+'</span>':'')+(s.hr&&s.hr.n?'<span class="chip">Avg ♥ '+hrAvg(s.hr)+' · peak '+s.hr.max+'</span>':'')+'</div>'+(s.note?'<button class="nbox daynote" data-act="daynote"><small>Workout note</small><p>'+esc(s.note)+'</p></button>':'');
   let last=null,letter=0;
   const head=(x,ei,tag)=>{const e=ex(x.exId);
     let o=(x.abw!=null?'<button class="bwchip" data-act="bwday">Bodyweight '+fmt(x.abw)+' '+unit()+' <span>· update</span></button>':'')+'<div class="ex-h"><div class="grow"><h3>'+(tag?'<span class="sstag">'+tag+'</span>':'')+esc(e.name)+(s.done&&!x.sets.some(t=>t.done)?'<span class="tag skip">Skipped</span>':'')+'</h3><p>'+(x.ivl?'Interval · every '+x.secs+' s · '+x.sets.length+' rounds':x.bwo?'Bodyweight':x.plus?'Bodyweight + weight · enter the added weight':esc(e.equip||'')+(x.side?' · per side + '+fmt(x.bar)+' '+unit()+' bar':'')+(x.assist?' · weight is the assistance':''))+(x.ivl?'':' · '+e.lo+'–'+e.hi+' reps')+'</p>'+(hasNote(x)?((d)=>'<button class="notechip'+(d?' due':'')+'" data-act="noteopen">'+I.note+(d?'Read note':'Note')+'</button>')(noteDue(s,ei)):'')+'</div><button class="ib" data-act="exhist" aria-label="History">'+I.hist+'</button><button class="ib" data-act="exmenu" aria-label="Exercise menu">'+I.kebab+'</button></div>';
@@ -1311,7 +1329,7 @@ function viewWorkout(){
   }
   if(!s.exs.length)h+='<div class="empty">'+(m.quick?'Add any exercises you like. Each one starts from the last time you logged it, and everything you log shows up in its history and charts.':m.blank?'This day is empty. Add exercises and they carry over to this day every week.':'No exercises on this day.')+'</div>';
   h+='<button class="row-btn quiet" data-act="addex" style="margin-top:14px">'+I.plus+'Add exercise</button>';
-  if(!s.done)h+='<button class="row-btn main" data-act="finish" style="margin-top:14px">Finish workout</button>';
+  if(!s.done)h+='<button class="row-btn main" data-act="finish" style="margin-top:14px">'+(m.practice?'Finish practice':'Finish workout')+'</button>';
   h+='</div>';
   return h;
 }
@@ -1367,6 +1385,7 @@ function exList(q){
 function viewMore(){
   if(ui.sub==='progress')return viewProgress();
   let h='<div class="page-h gut"><h1 data-act="nerdtap">More</h1></div><div class="gut">';
+  h+='<button class="li" data-act="tour"><div><b>How to use this app</b><small>A one-minute walkthrough, and a practice workout</small></div><span class="chev">'+I.chev+'</span></button>';
   h+='<button class="li" data-act="subprog"><div><b>Progress</b><small>Strength trends and weekly sets per muscle</small></div><span class="chev">'+I.chev+'</span></button>';
   h+='<div class="sec">Settings</div><div class="card" style="margin-top:0"><div class="two"><div class="field" style="margin:0"><label for="s_unit">Weight unit</label><select id="s_unit" class="in" data-chg="unit"><option value="lb"'+(unit()==='lb'?' selected':'')+'>lb</option><option value="kg"'+(unit()==='kg'?' selected':'')+'>kg</option></select></div><div class="field" style="margin:0"><label for="s_bw">Bodyweight</label><input id="s_bw" class="in" inputmode="decimal" data-chg="bw" value="'+fmt(S.prefs.bw)+'"></div></div><div class="two" style="margin-top:12px"><div class="field" style="margin:0"><label for="s_bar">Bar weight</label><input id="s_bar" class="in" inputmode="decimal" data-chg="bar" value="'+fmt(S.prefs.bar)+'"></div><div class="field" style="margin:0"><label for="s_bl">Barbell entry</label><select id="s_bl" class="in" data-chg="barload"><option value="total"'+(S.prefs.barLoad!=='side'?' selected':'')+'>Total weight</option><option value="side"'+(S.prefs.barLoad==='side'?' selected':'')+'>One end only</option></select></div></div><p>Barbell entry is how you type weight on barbell exercises. One end only leaves out the bar and the other end, and the app adds them back for progression. You can override it per exercise from the exercise menu. Changing the unit converts every weight you have entered.</p></div>';
   h+=soreStatus();
@@ -1470,6 +1489,22 @@ function viewProgress(){
 function fallbackMeso(ret){const p=plans();return (ret&&p.find(m=>m.id===ret)||p[p.length-1]||{}).id||null}
 // Quick workouts with nothing logged are dropped when you move on to something else.
 function pruneQuick(keep){for(const m of S.mesos.filter(m=>m.quick&&m.id!==keep&&!Object.values(m.sessions).some(s=>sessCounts(s).d))){S.mesos=S.mesos.filter(z=>z!==m);mark('del:'+m.id)}}
+/* Practice workout: a throwaway copy of all data with a 2-exercise quick workout in it. mark/saveLocal/flush do nothing
+   while PRAC is set, and practiceEnd puts the real data back, so nothing logged here is saved, synced or in history. */
+const PRAC_EX=['dumbbell-curl-alternating','dumbbell-lateral-raise'];
+function practiceStart(){if(PRAC)return;if(HR.log){toast('Stop heart rate logging first');return}
+  closeSheet();restStop();PRAC={S,tab:ui.tab,wk:ui.wk,di:ui.di};S=clone(S);
+  S.prefs.rest={on:true,secs:30};   // short rest so the timer, the 20 s voice and "Go" all show up in practice
+  const m=quickMeso();m.practice=true;m.name='Practice workout';m.days[0].items=PRAC_EX.filter(ex).map((id,i)=>({exId:id,sets:i?2:3}));
+  S.mesos.push(m);S.activeMeso=m.id;const ses=buildSession(m,1,0),kg=unit()==='kg';
+  ses.exs.forEach((x,i)=>x.sets.forEach(t=>{if(!(t.w>0)){t.w=t.pw=kg?[10,4][i]:[25,10][i]}if(!(t.r>0))t.r=t.pr=12}));
+  m.sessions[ses.key]=ses;ui.wk=1;ui.di=0;ui.tmp=null;ui.tab='workout';render();window.scrollTo(0,0)}
+function practiceEnd(){if(!PRAC)return;restStop();const P=PRAC;PRAC=null;S=P.S;ui.tab=P.tab;ui.wk=P.wk;ui.di=P.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0);
+  if(dirty.size){clearTimeout(saveT);saveT=setTimeout(flush,700)}}
+function practiceQ(x){const mu=MUS[muscleOf(x)]||{name:'Muscle'};
+  sheet('<h2>Quick question</h2><p style="color:var(--muted);margin:4px 0 0">In a real plan the app asks a few questions like this as you go. Your answers change next week’s sets on this day.</p><div class="q"><b>'+esc(mu.name)+' pump</b><span>How much of a pump did you get?</span><div class="opts">'+['Low','Moderate','Great'].map(t=>'<button class="opt" data-act="pracqo">'+t+'</button>').join('')+'</div></div><div class="foot"><button class="btn pri" id="pracqs" data-act="pracqs" disabled>Save</button></div>')}
+function practiceDone(){const fresh=!plans().length;
+  sheet('<h2>Nice work!</h2><p style="color:var(--muted)">That’s a workout: log each set, rest, answer a question or two, and tap Finish. The real thing also picks your weights and sets for you, and adjusts them every week.</p>'+(fresh?'<p style="color:var(--muted)">Ready to make your own plan?</p><div class="foot"><button class="btn" data-act="close">Later</button><button class="btn pri" data-act="newmeso">Make my plan</button></div>':'<div class="foot"><button class="btn pri" data-act="close">Done</button></div>'))}
 function leaveQuick(m){S.activeMeso=fallbackMeso(m.ret);mark('core');ui.tmp=null;gotoPending();ui.tab=S.activeMeso?'workout':'mesos';render();window.scrollTo(0,0)}
 function ctx(el){const se=el.closest('[data-ei]');return {ei:se?+se.dataset.ei:null,si:el.closest('[data-si]')?+el.closest('[data-si]').dataset.si:null}}
 function muscleHasDone(s,mu){return s.exs.some(x=>muscleOf(x)===mu&&x.sets.some(t=>t.done))}
@@ -1488,6 +1523,7 @@ function toggleSet(ei,si){
     if(si===0)matchTargets(x);
     if(first){trackWorked(mu);mark('core')}
     commit(s);render();
+    if(meso().practice&&!x.sets.some(q=>!q.done)&&!meso().asked){meso().asked=1;ui.pq=(ui.pq||[]).concat(()=>{if(PRAC)practiceQ(x)});setTimeout(pqNext,900)}   // after the form check, if one opened
     const nd=s.exs.findIndex((_,i)=>!due0[i]&&noteDue(s,i));if(nd>=0)toast('Check the note on '+ex(s.exs[nd].exId).name+' before you start');
     const after=()=>{if(first)maybeSoreness(s,mu,dv);else maybePost(s,mu)};
     if(x.form==null&&x.sets.every(t=>t.done)){ui.pq=(ui.pq||[]).concat(after);askForm(ei)}else after();
@@ -1540,6 +1576,76 @@ function openSoreCheck(){
   });
   sheet(h+'<div class="foot"><button class="btn" data-act="sclater">Later</button><button class="btn pri" id="scsave" data-act="scsave" disabled>Save</button></div>');
 }
+/* New plan, in steps: 1 how to start (blank, copy of a plan, template), 2 which weekdays (blank only), 3 name, with weeks,
+   start date and difficulty tucked under More options. All steps live in one sheet; hidden fields keep mesocreate's ids. */
+function newPlanSheet(){ui.np={days:BLANK_WD[4].slice()};
+  const opt=(v,b,sm)=>'<button class="li" data-act="npstart" data-v="'+esc(v)+'"><div><b>'+b+'</b><small>'+sm+'</small></div><span class="chev">'+I.chev+'</span></button>';
+  const cps=plans().filter(m=>m.days&&m.days.length).sort((a,b)=>b.created-a.created);
+  let h='<h2>New plan</h2><input type="hidden" id="f_mt" value="">'
+   +'<div id="np1"><p style="color:var(--muted);margin:4px 0 8px">How do you want to start?</p><div class="menu">'
+   +opt('','Start blank','Pick your workout days, then add exercises as you go')
+   +cps.map(m=>opt('m:'+m.id,'Copy “'+esc(m.name)+'”','Same days and exercises. Sets pick up where your last hard week left them')).join('')
+   +S.templates.map(t=>opt(t.id,'Template: '+esc(t.name),t.days.length+' days a week, exercises already filled in')).join('')+'</div></div>'
+   +'<div id="np2" hidden><p style="color:var(--muted);margin:4px 0 10px">Which days do you work out?</p><div class="rpre npdays">'
+   +WD.map((d,i)=>'<button class="'+(ui.np.days.includes(i)?'on':'')+'" data-act="npday" data-v="'+i+'" aria-label="'+d+'">'+d.slice(0,3)+'</button>').join('')
+   +'</div><p id="np_n" style="text-align:center;color:var(--muted);font-size:14px;margin:10px 0 0">4 days a week</p><p style="color:var(--muted);font-size:14px">Each day starts empty. Exercises you add on a day come back on that day every week.</p>'
+   +'<div class="foot"><button class="btn" data-act="npstep" data-v="1">Back</button><button class="btn pri" id="np_next" data-act="npstep" data-v="3">Next</button></div></div>'
+   +'<div id="np3" hidden><div class="field"><label for="f_mn">Name your plan</label><input id="f_mn" class="in" value="" placeholder="My plan"></div><p id="np_sum" style="color:var(--muted);font-size:14px;margin:0"></p>'
+   +'<button class="btn" data-act="npmore" style="margin-top:12px">More options</button><div id="np_more" hidden>'
+   +'<div class="two"><div class="field"><label for="f_mw">Weeks</label><select id="f_mw" class="in">'+[4,5,6,7,8].map(n=>'<option'+(n===5?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="field"><label for="f_ms">Start date</label><input id="f_ms" type="date" class="in" value="'+today()+'"></div></div>'
+   +'<div class="field"><label for="f_mr">How hard each week gets</label><select id="f_mr" class="in"><option value="std">Standard: 3 → 0 reps left in the tank</option><option value="test">Start with a test week: 0–1, then 2 → 0</option></select></div>'
+   +'<p style="color:var(--muted);font-size:14px">“Reps left in the tank” is how many more you could have done. A test week takes every set in week 1 close to failure (0–1 left), so the app measures your real strength instead of guessing.</p></div>'
+   +'<div class="foot"><button class="btn" data-act="npstep" data-v="0">Back</button><button class="btn pri" data-act="mesocreate">Start plan</button></div></div>';
+  sheet(h)}
+// Step 1 choice: remember it, fill in a copied plan's weeks and difficulty, then go to days (blank) or name.
+function npStart(v){$('#f_mt').value=v;ui.np.from=v;const src=v.startsWith('m:')?S.mesos.find(z=>z.id===v.slice(2)):null,t=S.templates.find(z=>z.id===v);
+  if(src){$('#f_mw').value=String(src.weeks);$('#f_mr').value=src.style||'std'}
+  $('#f_mn').placeholder=src?src.name:t?t.name.replace(/ \(sample\)/,''):'My plan';
+  npStep(v?3:2)}
+// 0 = back from the name step (to days for blank, else to the start choice).
+function npStep(n){if(n===0)n=ui.np.from?1:2;['np1','np2','np3'].forEach((id,i)=>$('#'+id).hidden=i!==n-1);
+  if(n===3){const src=(ui.np.from||'').startsWith('m:'),t=S.templates.find(z=>z.id===ui.np.from);
+    $('#np_sum').textContent=(src?'Copied plan':t?'From template':ui.np.days.length+' day'+(ui.np.days.length>1?'s':'')+' a week ('+pickDays(ui.np.days).map(d=>WD[d.weekday].slice(0,3)).join(', ')+')')+'. Runs for a few weeks (change it under More options) and ends with an easy recovery week.'}
+  $('#sheet .panel').scrollTop=0}
+/* "How it works" walkthrough: swipeable cards built from the app's real pieces (set row, rest pill, question buttons) with
+   example numbers, so they always match the app. Card 0 offers a skip. Shown once after the Welcome sheet (S.prefs.tour),
+   and from More. The last card leads to a practice workout or a new plan. */
+const TOUR_N=7;
+function tourOpen(){S.prefs.tour=1;mark('core');tourShow(0)}
+function tourCard(i){const kg=unit()==='kg',u=unit(),w=kg?20:45,w2=kg?20:45;
+  const demo=x=>'<div class="demo">'+x+'</div>';
+  const row=(wt,r,done)=>'<div class="set'+(done?' done':'')+'"><span class="ib">'+I.kebab+'</span><input value="'+wt+'" inputmode="decimal" aria-label="Weight"><input value="'+r+'" inputmode="numeric" aria-label="Reps"><span></span><button class="logb" data-act="tourlog" aria-label="Log set">'+I.check+'</button></div>';
+  switch(i){
+  case 0:return '<h2>Welcome to Fit R Good</h2><p class="tp">It plans your workouts for you: which weights, how many reps and sets. Every week it makes things a little harder, based on how your workouts felt.</p>'
+    +demo('<div class="wk"><b>Week 1</b><span>'+w+' '+u+' × 10</span></div><div class="arrow">↓</div><div class="wk"><b>Week 2</b><span>'+w+' '+u+' × 11</span></div><div class="arrow">↓</div><div class="wk"><b>Week 3</b><span>'+(w+(kg?2.5:5))+' '+u+' × 10</span></div>')
+    +'<p class="tp">Want a quick look at how it works? It takes about a minute.</p>';
+  case 1:return '<h2>1. Make a plan</h2><p class="tp">Pick the days you work out, then add exercises to each day. Whatever you add comes back on that day every week. A plan runs for a few weeks.</p>'
+    +demo('<div class="rpre npdays">'+WD.map((d,j)=>'<button class="'+([0,1,3,4].includes(j)?'on':'')+'" tabindex="-1">'+d.slice(0,3)+'</button>').join('')+'</div><div class="li" style="margin-top:12px"><div><b>Day 1</b><small>Bench press · Rows · Curls</small></div></div><div class="li"><div><b>Day 2</b><small>Squats · Leg curls · Calf raises</small></div></div>')
+    +'<p class="tp">Already have a plan? You can copy it when you start the next one.</p>';
+  case 2:return '<h2>2. Log each set</h2><p class="tp">Each set shows the weight and reps the app picked for you. Did something different? Just change the numbers. Then tap ✓ to log the set.</p>'
+    +demo('<section class="ex"><div class="ex-h"><div class="grow"><b class="nm">Bench press</b></div></div><div class="cols"><span></span><span>Weight</span><span>Reps</span><span></span><span>Log</span></div>'+row(w2+(kg?40:90),10,true)+row(w2+(kg?40:90),9,false)+'</section>')
+    +'<p class="tp"><b>Try it:</b> tap the empty ✓ above.</p>';
+  case 3:return '<h2>3. Rest between sets</h2><p class="tp">Turn on the rest timer with the '+I.timer.replace('<svg','<svg style="width:18px;height:18px;vertical-align:-3px"')+' button at the top of a workout. It starts when you log a set. A voice says “Twenty seconds” near the end and “Go” at zero, and it plays over your music.</p>'
+    +demo('<div style="text-align:center"><div class="restpill pill"><span class="rl">Rest</span><span class="rt">1:24</span><button tabindex="-1">+15</button></div></div>')
+    +'<p class="tp">Press and hold the timer to move it anywhere on the screen.</p>';
+  case 4:return '<h2>4. Answer quick questions</h2><p class="tp">When you start and finish a muscle, the app asks how it felt: were you sore, how was the pump, were the sets too much? Tap an answer, that’s it.</p>'
+    +demo('<div class="q" style="margin:0"><b>Chest pump</b><span>How much of a pump did you get?</span><div class="opts">'+['Low','Moderate','Great'].map(t=>'<button class="opt" data-act="tourq">'+t+'</button>').join('')+'</div></div>')
+    +'<p class="tp">The day after you train, it also asks if you’re still sore. No notifications: it asks when you open the app.</p>';
+  case 5:return '<h2>5. It adjusts for you</h2><p class="tp">Your answers and the sets you logged decide next week. Do more than planned and the weight or reps go up. Too sore or too much? It takes a set off.</p>'
+    +demo('<div class="chips" style="margin:0"><span class="chip hot">'+tankLabel(3)+'</span></div><p class="tp" style="margin-top:8px">“Reps left in the tank” is how many more you could have done. It starts at 3 and drops each week, so the sets get harder.</p><div class="chips"><span class="chip hot">'+tankLabel(0)+'</span></div><p class="tp" style="margin-top:8px">By the last hard week you go all out.</p>');
+  case 6:return '<h2>6. Then an easy week</h2><p class="tp">The last week of every plan is a recovery week: lighter weights and half the sets, so your body can catch up. After that, start a new plan or copy the one you just finished.</p>'
+    +demo('<div class="chips" style="margin:0"><span class="chip hot">Recovery week</span><span class="chip hot">'+tankLabel(5)+'</span></div>')
+    +'<p class="tp">That’s it! The best way to learn is to try it: a practice workout takes a minute and nothing is saved.</p>';
+  }}
+function tourShow(i){ui.tourI=i;const last=i===TOUR_N-1,fresh=!plans().length;
+  const nav=i===0?'<div class="foot" style="flex-wrap:wrap"><button class="btn" data-act="tourskip">Skip, I know my way around</button><button class="btn pri" data-act="tournav" data-v="1">Show me how</button></div>'
+    :last?'<div class="foot" style="flex-wrap:wrap"><button class="btn" data-act="tourend">'+(fresh?'Later':'Done')+'</button>'+(fresh?'<button class="btn" data-act="newmeso">Make my plan</button>':'')+'<button class="btn pri" data-act="practice">Try a practice workout</button></div>'
+    :'<div class="foot"><button class="btn" data-act="tournav" data-v="'+(i-1)+'">Back</button><button class="btn pri" data-act="tournav" data-v="'+(i+1)+'">Next</button></div>';
+  sheet('<div class="tc">'+tourCard(i)+'</div><div class="dots" aria-label="Card '+(i+1)+' of '+TOUR_N+'">'+Array.from({length:TOUR_N},(_,j)=>'<i class="'+(j===i?'on':'')+'"></i>').join('')+'</div>'+nav,'tour');
+  const p=$('#sheet .panel');let x0=null,y0=0;   // swipe left/right between cards
+  p.addEventListener('touchstart',e=>{if(e.target.closest('input'))return;x0=e.touches[0].clientX;y0=e.touches[0].clientY},{passive:true});
+  p.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0,dy=e.changedTouches[0].clientY-y0;x0=null;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5){const n=ui.tourI+(dx<0?1:-1);if(n>=0&&n<TOUR_N)tourShow(n)}})}
 function openSetup(){
   sheet('<h2>Welcome</h2><p style="color:var(--muted)">A few settings first. You can change them later in More.</p>'
    +'<div class="two"><div class="field"><label for="f_su">Weight unit</label><select id="f_su" class="in"><option value="lb"'+(unit()==='lb'?' selected':'')+'>lb</option><option value="kg"'+(unit()==='kg'?' selected':'')+'>kg</option></select></div>'
@@ -1930,7 +2036,7 @@ ivundo(){const s=curSession(),t=s.exs[ui.ei].sets[ui.si];closeSheet();t.r=t.pr;t
 dounit(){convertUnits(S,ui.unitTo);ui.tmp=null;mark('core',...S.mesos.map(m=>'meso:'+m.id));closeSheet();render();toast('Weights are now in '+unit())},
 setupsave(){const bw=num($('#f_sbw').value);if(!(bw>0)){toast('Enter your bodyweight');return}
   const u=$('#f_su').value;convertUnits(S,u);S.prefs.bw=bw;S.prefs.barLoad=$('#f_sbl').value;ui.tmp=null;
-  delete S.prefs.needsSetup;mark('core');closeSheet();render()},
+  delete S.prefs.needsSetup;mark('core');closeSheet();render();if(!S.prefs.tour)tourOpen()},
 scopen(){openSoreCheck()},
 sclater(){closeSheet()},
 scq(el){pickOpt(el);ui.sc[el.dataset.mu]=+el.dataset.v;$('#scsave').disabled=Object.keys(ui.sc).length<ui.scn},
@@ -1944,7 +2050,7 @@ ldsave(){const s=curSession(),x=s.exs[ui.ei],e=ex(x.exId),b=num($('#f_bar').valu
   const cv=w=>{if(w==null)return w;const T=oS?oB+2*w:w;return Math.max(0,Math.round((nS?(T-nB)/2:T)*100)/100)};
   x.sets.forEach(t=>{t.w=cv(t.w);t.pw=cv(t.pw)});x.side=nS;x.bar=nB;e.load=nS?'side':'total';if(nS)e.bar=nB;
   mark('core');commit(s);closeSheet();render();toast(nS?'Entering one end. Total is bar plus both ends.':'Entering total weight.')},
-tab(el){ui.tab=el.dataset.v;ui.sub=null;ui.tpl=null;render();window.scrollTo(0,0)},
+tab(el){if(PRAC)practiceEnd();ui.tab=el.dataset.v;ui.sub=null;ui.tpl=null;render();window.scrollTo(0,0)},
 log(el){const c=ctx(el);toggleSet(c.ei,c.si)},
 bwday(){bwSheet(false)},
 bwsame(){const s=curSession();s.bwAsked=true;commit(s);closeSheet();render()},
@@ -2019,6 +2125,16 @@ cal(){const m=meso(),n=m.days.length;let h='<h2>Pick a day</h2><div class="cal" 
   sheet(h+'</div><p style="color:var(--muted);font-size:14px;margin-top:12px">Filled green is finished, dashed is skipped. The last week is the recovery week.</p>')},
 goto(el){ui.wk=+el.dataset.wk;ui.di=+el.dataset.di;ui.tmp=null;closeSheet();render();window.scrollTo(0,0)},
 hrmenu(){hrSheet()},
+practice(){practiceStart()},
+tour(){tourShow(0)},
+tournav(el){tourShow(+el.dataset.v)},
+tourskip(){closeSheet()},
+tourend(){closeSheet()},
+tourlog(el){const r=el.closest('.set');r.classList.toggle('done');if(r.classList.contains('done'))fireworks('set')},
+tourq(el){pickOpt(el)},
+pracexit(){practiceEnd();toast('Practice closed. Nothing was saved.')},
+pracqo(el){pickOpt(el);$('#pracqs').disabled=false},
+pracqs(){closeSheet();toast('Saved. In a real plan this shapes next week.')},
 hron(){closeSheet();hrConnect()},   // still inside the tap, which the device picker requires
 hroff(){closeSheet();hrStop()},
 hrlogon(){closeSheet();hrLogStart()},
@@ -2039,6 +2155,7 @@ update(el){el.disabled=true;el.textContent='Updating…';Promise.race([flush(),n
 sessmenu(){if(meso().quick){sheet('<h2>Quick workout</h2><div class="menu">'+(curSession().done?'':'<button class="li" data-act="finish">'+I.check+'Finish workout</button>')+'<button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="delmeso" data-id="'+meso().id+'">'+I.trash+'Discard workout</button></div>');return}
   sheet('<h2>Workout</h2><div class="menu"><button class="li" data-act="finish">'+I.check+'Finish workout</button><button class="li" data-act="daynote">'+I.note+'Workout note</button>'+(nerdOn()?'<button class="li" data-act="nerd">'+I.chart+'Behind the scenes</button>':'')+'<button class="li" data-act="prio">'+I.t_ex+'Muscle priorities</button><button class="li" data-act="addex">'+I.plus+'Add exercise</button><button class="li bad" data-act="resetday">'+I.trash+'Reset this day</button></div>')},
 finish(){const s=curSession(),m=meso();
+  if(m.practice){const any=sessCounts(s).d;practiceEnd();if(any){fireworks();practiceDone()}else toast('Practice closed. Nothing was saved.');return}
   if(m.quick){if(!sessCounts(s).d){ACT.dodelmeso({dataset:{id:m.id}});toast('Nothing logged, so nothing saved');return}
     restStop();if(hrLogging(s))hrLogStop(true);s.done=true;if(!s.date)s.date=today();commit(s);closeSheet();leaveQuick(m);toast('Saved to your history');fireworks();return}
   if(!sessCounts(s).d){sheet('<h2>Skip this workout?</h2><p style="color:var(--muted)">Nothing is logged yet. It will show as skipped in the calendar and nothing goes into your history. Next week’s weights and sets carry on from the last time you trained.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="doskip">Skip workout</button></div>');return}
@@ -2065,12 +2182,15 @@ pickex(el){const p=ui.pick,id=el.dataset.id,m=meso(),s=curSession();
   else if(p.kind==='tpl'){const t=S.templates.find(z=>z.id===ui.tpl);t.days[p.di].items.push({exId:id,sets:3});mark('core')}
   if(p.kind!=='tpl'){syncDay(m,s);commit(s)}closeSheet();render()},
 /* mesos */
-newmeso(){
-  sheet('<h2>New plan</h2><div class="field"><label for="f_mn">Name</label><input id="f_mn" class="in" value="" placeholder="My plan"></div><div class="field"><label for="f_mt">Start from</label><select id="f_mt" class="in" data-chg="mtpl"><option value="" selected>Blank: build as you go</option>'+plans().filter(m=>m.days&&m.days.length).sort((a,b)=>b.created-a.created).map(m=>'<option value="m:'+m.id+'" data-w="'+m.weeks+'" data-st="'+(m.style||'std')+'">Copy: '+esc(m.name)+'</option>').join('')+S.templates.map(t=>'<option value="'+t.id+'">Template: '+esc(t.name)+'</option>').join('')+'</select><p id="f_mt_n" hidden style="color:var(--muted);font-size:14px;margin:4px 0 0">Same days and exercises. Sets start where your last hard week left them, and weights start from your last workouts.</p></div><div class="field" id="w_md"><label for="f_md">Days per week</label><select id="f_md" class="in">'+[1,2,3,4,5,6,7].map(n=>'<option'+(n===4?' selected':'')+'>'+n+'</option>').join('')+'</select><p style="color:var(--muted);font-size:14px;margin:4px 0 0">Each day starts empty. Exercises you add on a day carry over to that day every week.</p></div><div class="two"><div class="field"><label for="f_mw">Weeks</label><select id="f_mw" class="in">'+[4,5,6,7,8].map(n=>'<option'+(n===5?' selected':'')+'>'+n+'</option>').join('')+'</select></div><div class="field"><label for="f_ms">Start date</label><input id="f_ms" type="date" class="in" value="'+today()+'"></div></div><div class="field"><label for="f_mr">How hard each week gets</label><select id="f_mr" class="in"><option value="std">Standard: 3 → 0 reps left in the tank</option><option value="test">Start with a test week: 0–1, then 2 → 0</option></select></div><p style="color:var(--muted);font-size:14px">“Reps left in the tank” is how many more you could have done. A test week takes every set in week 1 close to failure (0–1 left), so the app measures your real strength instead of guessing. The last week is an easy recovery week.</p><div class="foot"><button class="btn" data-act="close">Cancel</button><button class="btn pri" data-act="mesocreate">Start</button></div>')},
+newmeso(){newPlanSheet()},
+npstart(el){npStart(el.dataset.v)},
+npday(el){const d=+el.dataset.v,a=ui.np.days;ui.np.days=a.includes(d)?a.filter(x=>x!==d):a.concat(d);el.classList.toggle('on');const n=ui.np.days.length;$('#np_n').textContent=n?n+' day'+(n>1?'s':'')+' a week':'Pick at least one day';$('#np_next').disabled=!n},
+npstep(el){npStep(+el.dataset.v)},
+npmore(el){$('#np_more').hidden=false;el.remove()},
 mesocreate(){const tid=$('#f_mt').value,src=tid.startsWith('m:')?S.mesos.find(z=>z.id===tid.slice(2)):null,t=src?null:S.templates.find(z=>z.id===tid);
   if(tid&&!src&&(!t||!t.days.length)){toast('That template has no days');return}
   if(tid.startsWith('m:')&&!src){toast('That plan is gone');return}
-  const days=src?copyDays(src):t?clone(t.days).sort((a,b)=>a.weekday-b.weekday):blankDays(+$('#f_md').value);
+  const days=src?copyDays(src):t?clone(t.days).sort((a,b)=>a.weekday-b.weekday):pickDays(ui.np.days);
   const m={id:rid(),name:$('#f_mn').value.trim()||(src?src.name:t?t.name.replace(/ \(sample\)/,''):'My plan'),weeks:+$('#f_mw').value,start:$('#f_ms').value||today(),days,sessions:{},created:Date.now(),template:src?'Copy of '+src.name:t?t.name:'Blank',style:$('#f_mr').value==='test'?'test':'std'};
   if(src?src.blank:!t)m.blank=true;   // a copy keeps the source's day behavior (blank days follow what you log)
   const pm=plans().pop();if(pm&&pm.prio&&Object.keys(pm.prio).length)m.prio=clone(pm.prio);
@@ -2174,8 +2294,6 @@ document.addEventListener('change',e=>{
   else if(k==='bar'){const v=num(el.value);if(v!=null&&v>=0){S.prefs.bar=v;mark('core')}}
   else if(k==='exeq'){const c=el.value==='custom';$('#f_eq').hidden=!c;$('#w_load').hidden=!hasBar(el.value);if(c)$('#f_eq').focus()}
   else if(k==='exty'){$('#w_ivl').hidden=el.value!=='ivl';$('#w_sets').hidden=el.value==='ivl'}
-  else if(k==='mtpl'){$('#w_md').hidden=!!el.value;const o=el.selectedOptions[0];$('#f_mt_n').hidden=!el.value.startsWith('m:');
-    if(o&&o.dataset.w){$('#f_mw').value=o.dataset.w;$('#f_mr').value=o.dataset.st}}
   else if(k==='barload'){S.prefs.barLoad=el.value;mark('core')}
   else if(k==='cx'){ui.cx=el.value;ui.chart=null;render()}
   else if(k==='import'){const f=el.files&&el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d||!Array.isArray(d.exercises)||!Array.isArray(d.mesos||[]))throw 0;if(unsafeBackup(d)){toast('That backup has damaged or unsafe data, so it was not imported');console.warn('unsafe backup value at',unsafeBackup(d));return}ui.imp=d;confirmSheet('Replace your data?','This backup has '+(d.mesos||[]).length+' plans and '+(d.templates||[]).length+' templates. Importing replaces everything you have now.','doimport')}catch(err){toast('That file is not a Fit R Good backup')}};r.readAsText(f);el.value=''}

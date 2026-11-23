@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx, reweigh, copyDays
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx, reweigh, copyDays, pickDays
 };`);
 
 let ok = 0, bad = 0;
@@ -582,5 +582,6 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq(d.map(x => [x.name, x.weekday]), [['Push', 1]], 'copy keeps day names and weekdays');
   eq(d[0].items, [{ exId: 'bench-press-wide-grip', sets: 5, ss: true }, { exId: 'dumbbell-lateral-raise', sets: 3 }, { exId: 'leg-extension', sets: 3 }], 'copy keeps order and supersets; sets from the last logged non-recovery week');
   d[0].items[0].sets = 9; eq(m.days[0].items[0].sets, 3, 'copy does not share objects with the source plan'); }
+eq(T.pickDays([4, 0, 2, 0]), [{ name: 'Day 1', weekday: 0, items: [] }, { name: 'Day 2', weekday: 2, items: [] }, { name: 'Day 3', weekday: 4, items: [] }], 'picked weekdays: sorted, no repeats, named in order');
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
