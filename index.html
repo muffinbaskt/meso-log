@@ -1484,6 +1484,7 @@ function toggleSet(ei,si){
     const due0=s.exs.map((_,i)=>noteDue(s,i));
     t.done=true;if(!s.date)s.date=today();delete s.skipped;
     if(!s.done&&x.sets.some(q=>!q.done))restStart();else restStop();   // no rest after an exercise's last set (or the workout's)
+    fireworks('set');
     if(si===0)matchTargets(x);
     if(first){trackWorked(mu);mark('core')}
     commit(s);render();
@@ -1835,8 +1836,9 @@ function hrValue(b){HR.bpm=b;const el=$('#hrchip');if(el)el.textContent=hrChipTe
   const L=hrLogSession();if(!L)return;if(L.s.done){hrLogStop(true);return}const now=Date.now();
   if(HR.stopAt&&now>=HR.stopAt){hrLogStop();return}
   if(addHr(L.s,b,now)&&now-HR.saved>15000){HR.saved=now;mark('meso:'+L.m.id)}}
-// A short fireworks show over the screen when a workout is finished: plain bursts plus one rocket that explodes into a
-// cheer word. Skipped for reduced-motion users; taps pass through.
+// Fireworks over the screen. fireworks('set'): one rocket each time a set is checked. fireworks(): the finish show, a
+// long run of bursts, one rocket that explodes into a cheer word, and a closing volley. Skipped for reduced-motion
+// users; taps pass through.
 const CHEERS=['Success','Most The Good','Yay','The Best!'];
 // Firework sounds, synthesized with Web Audio (no sound files): a rising whoosh per rocket, a boom per burst with a
 // low thump, and crackles as the sparks fade. Created inside the Finish tap so the browser allows playback.
@@ -1859,15 +1861,19 @@ function fwAudio(){
       close(){setTimeout(()=>a.close().catch(()=>{}),2500)}}
   }catch(e){return null}
 }
-function fireworks(){
+function fireworks(mode){
+  const one=mode==='set';
   if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const snd=fwAudio(),pan=px=>Math.max(-.8,Math.min(.8,(px/innerWidth)*1.6-.8));
   const c=document.createElement('canvas'),x=c.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1),W=innerWidth,H=innerHeight;
   c.width=W*dpr;c.height=H*dpr;c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:90';
   document.body.appendChild(c);x.scale(dpr,dpr);
-  const P=[],R=[],hues=[18,45,160,195,290,330],G=0.06,END=2600,t0=performance.now();
-  for(let i=0;i<5;i++)R.push({at:i*330+Math.random()*120,x:W*(.2+.6*Math.random()),y:H,ty:H*(.18+.25*Math.random()),h:hues[(Math.random()*hues.length)|0],up:true});
-  R.push({at:600,x:W/2,y:H,ty:H*.3,h:45,up:true,word:CHEERS[(Math.random()*CHEERS.length)|0]});
+  const P=[],R=[],hues=[18,45,160,195,290,330],G=0.06,END=one?0:5200,t0=performance.now();
+  const rk=(at,lo,span)=>R.push({at,x:W*(.15+.7*Math.random()),y:H,ty:H*(lo+span*Math.random()),h:hues[(Math.random()*hues.length)|0],up:true});
+  if(one)rk(0,.2,.25);
+  else{for(let i=0;i<14;i++)rk(i*230+Math.random()*120,.15,.3);   // steady run
+    for(let i=0;i<7;i++)rk(3700+i*70+Math.random()*60,.12,.25);    // closing volley
+    R.push({at:900,x:W/2,y:H,ty:H*.3,h:45,up:true,word:CHEERS[(Math.random()*CHEERS.length)|0]})}
   function boom(r){const n=46;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,v=2+Math.random()*2.6;P.push({x:r.x,y:r.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,h:r.h+Math.random()*30-15})}}
   // Word burst: sample the word's pixels, then each spark flies from the burst point to its spot, holds, and falls away.
   function wordBoom(r,now){
