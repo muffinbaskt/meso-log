@@ -9,7 +9,7 @@ eval(src + `
 ;globalThis.T = {
   get S() { return S }, set S(v) { S = v },
   seedState, buildSession, applyMuscle, setDelta, distribute, planLoad, rirFor, ex, nextPending,
-  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx, reweigh
+  exHistory, lastPerf, loadMode, totOf, dayDiff, deriveSoreness, dueSoreness, trackWorked, normalize, today, e1rm, vsPlan, matchTargets, withType, makeEx, convertUnits, blankDays, syncDay, upgradeLib, libEx, LIB, quickMeso, isDl, unsafeBackup, setBodyweight, usesBw, ivlNext, applyMuscle, ssGroups, prioDelta, reorderItems, replaceItem, dropUntouched, noteDue, hasNote, filterEx, loggedIds, blankFilter, removeItem, parseHr, addHr, hrAvg, replanEx, planSet, explainMuscle, explainEx, srcIdx, reweigh, copyDays
 };`);
 
 let ok = 0, bad = 0;
@@ -571,5 +571,16 @@ eq(T.prioDelta(-2, 'maint', 3, 3), -2, 'maintain still removes');
   eq([tue2.fb.biceps.delta, tue2.exs[0].sets.length], [2, 4], 'Tuesday follows last Tuesday (+1, the most one exercise moves)');
   tue2.exs.forEach(x => x.sets.forEach(t => { t.w = 20; t.r = 10; t.done = true; })); tue2.done = true; m.sessions[tue2.key] = tue2;
   eq(T.buildSession(m, 3, 1).exs[0].sets.length, 2, 'Saturday\'s base set count comes from last Saturday, not Tuesday'); }
+{ // copying a plan: same days and order, sets from the last hard week (not the halved recovery week)
+  T.S = T.seedState(); T.normalize();
+  const m = { id: 'cp', name: 'cp', weeks: 3, start: '2026-11-02', days: [{ name: 'Push', weekday: 1, items: [{ exId: 'bench-press-wide-grip', sets: 3, ss: true }, { exId: 'dumbbell-lateral-raise', sets: 2 }, { exId: 'leg-extension', sets: 3 }] }], sessions: {}, created: 14, template: 'x', prio: {} };
+  T.S.mesos.push(m);
+  const mk = (wk, counts, done = true) => { const s = T.buildSession(m, wk, 0); s.exs.forEach((x, i) => { x.planned = counts[i]; x.sets = x.sets.slice(0, 1); x.sets.forEach(t => { t.w = 20; t.r = 10; t.done = done; }); }); m.sessions[s.key] = s; };
+  mk(1, [3, 2, 3]); mk(2, [5, 3, 3]); mk(3, [3, 2, 2]);   // week 3 is the recovery week
+  m.sessions['2-0'].exs[2].sets[0].done = false;            // leg extension not logged in week 2: falls back to week 1
+  const d = T.copyDays(m);
+  eq(d.map(x => [x.name, x.weekday]), [['Push', 1]], 'copy keeps day names and weekdays');
+  eq(d[0].items, [{ exId: 'bench-press-wide-grip', sets: 5, ss: true }, { exId: 'dumbbell-lateral-raise', sets: 3 }, { exId: 'leg-extension', sets: 3 }], 'copy keeps order and supersets; sets from the last logged non-recovery week');
+  d[0].items[0].sets = 9; eq(m.days[0].items[0].sets, 3, 'copy does not share objects with the source plan'); }
 console.log(ok + ' passed, ' + bad + ' failed');
 process.exit(bad ? 1 : 0);
