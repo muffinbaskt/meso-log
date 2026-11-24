@@ -1402,7 +1402,7 @@ function mountCaptcha(){ui.cap=null;ui.capWait=false;const el=$('#ts');if(!el)re
     callback:t=>{ui.cap=t;const b=$('[data-act="sendlink"]');if(ui.capWait&&b){ui.capWait=false;ACT.sendlink(b)}},'expired-callback':()=>{ui.cap=null},'error-callback':()=>{ui.cap=null;if(ui.capWait){ui.capWait=false;const b=$('[data-act="sendlink"]');if(b){b.disabled=false;b.textContent='Email me a sign-in link'}}}})}).catch(()=>toast('Could not load the bot check. Check your connection.'))}
 function viewSignin(){
   let h='<div class="signin"><h1>Fit R Good</h1>';
-  if(ui.sent)return h+'<p>We sent a sign-in link to <b>'+esc(ui.sent)+'</b>. Open it on this device to finish signing in.</p><button class="btn" data-act="signback">Use a different email</button></div>';
+  if(ui.sent)return h+'<p>We sent a sign-in link to <b>'+esc(ui.sent)+'</b>. Open it on this device to finish signing in.</p><p style="color:var(--muted);font-size:14px">Don’t see it after a minute? Check your junk or spam folder. It comes from login@bbqsauce.fit. Marking it “Not junk” helps the next one arrive in your inbox.</p><button class="btn" data-act="signback">Use a different email</button></div>';
   h+='<p>Sign in to keep your training log in sync across devices.</p>';
   h+='<div class="field"><label for="f_email">Email</label><input id="f_email" class="in" type="email" autocomplete="email" inputmode="email" enterkeyhint="send" placeholder="you@example.com"></div>';
   if(TS_KEY)h+='<div id="ts" class="ts"></div>';
