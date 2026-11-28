@@ -770,8 +770,9 @@ function lastPerf(exId,m,beforeOrd){
   let best=cand[0];for(const t of cand)if(e1rm(T(t),t.r)>e1rm(T(best),best.r))best=t;
   // Each set position's own result too (null where that set was not logged or does not count), so later sets that
   // drop off with fatigue are planned from what they did, not from the best set.
-  const sets=pick.x.sets.map(t=>t.done&&t.w>0&&t.r>0&&(!reg.length||!t.ty)?{tot:T(t),r:t.r}:null);
-  return {tot:T(best),r:best.r,rir:rirFor(pick.mm,pick.s.wk),sets,from:{meso:pick.mm.name,quick:!!pick.mm.quick,wk:pick.s.wk,di:pick.s.di,date:pick.s.date||null,day:(pick.mm.days[pick.s.di]||{}).name||''}};
+  const pl=t=>({pr:t.pr,prf:t.prf,ptot:t.pw!=null?T({w:t.pw}):null});   // what was planned, for the slower bodyweight rule
+  const sets=pick.x.sets.map(t=>t.done&&t.w>0&&t.r>0&&(!reg.length||!t.ty)?{tot:T(t),r:t.r,...pl(t)}:null);
+  return {tot:T(best),r:best.r,...pl(best),rir:rirFor(pick.mm,pick.s.wk),sets,from:{meso:pick.mm.name,quick:!!pick.mm.quick,wk:pick.s.wk,di:pick.s.di,date:pick.s.date||null,day:(pick.mm.days[pick.s.di]||{}).name||''}};
 }
 /* Latest earlier session with this exercise logged. sameDay: prefer the same workout day (o%100 is the day index),
    so an exercise done Monday and Friday takes Friday's set count from last Friday; any day is the fallback. */
@@ -814,21 +815,34 @@ function vsPlan(x,t,wk){
   const d=e1rm(totOf(x,t.w),t.r)-e1rm(totOf(x,t.pw),t.pr);
   return d>1e-9?'up':d<-1e-9?'down':null;
 }
+/* Bodyweight types (bodyweight only, + added weight, assisted) progress at half speed (owner's request 2026-11-27: pull-ups
+   climbed too fast). Each step down in reps left in the tank adds half a rep instead of one, and reps done above last
+   time's plan count half. Reps are rounded down and the unrounded plan is kept on the set (prf), so the half reps
+   build up: hitting a planned 8 that was really 8.5 counts as 8.5 next time (+1 rep every other week). */
+const slowMode=mode=>!!(mode&&(mode.bwo||mode.plus||mode.assist));
+function slowReps(lp){
+  if(!(lp.pr>0)||lp.ptot==null||Math.abs(lp.ptot-lp.tot)>0.01)return lp.r;   // no plan, or a different load than planned
+  const pf=lp.prf!=null&&Math.floor(lp.prf+1e-6)===lp.pr?lp.prf:lp.pr;          // the plan's hidden half rep, if still current
+  return lp.r>=lp.pr?pf+(lp.r-lp.pr)/2:lp.r;
+}
 function planLoad(e,lp,t,dl,mode){
   mode=mode||{side:false,bar:0};
+  const slow=slowMode(mode),fin=r=>slow?{r:Math.max(1,Math.floor(r+1e-6)),rf:Math.max(1,Math.round(r*100)/100)}:{r:Math.max(1,Math.round(r))};
   const inc=e.inc||5,side=!!mode.side,bar=mode.bar||0,step=side?inc*2:inc,asst=!!mode.assist,plus=!!mode.plus,abw=mode.abw||0;
   const toW=T=>asst?abw-T:plus?T-abw:side?(T-bar)/2:T,ok=v=>side||asst||plus?v>=0:v>0;
+  // Estimated max to plan from. Slow: at last time's load it gives slowReps + half the drop in reps left in the tank.
+  function est(lp){return slow?lp.tot*(1+(slowReps(lp)+(lp.rir+t)/2)/30):lp.tot*(1+(lp.r+lp.rir)/30)}
   if(!lp||!(lp.tot>0)){return {w:plus?0:mode.bwo?abw:e.bw?(S.prefs.bw||null):null,r:Math.round((e.lo+e.hi)/2)}}
   if(mode.bwo){   // bodyweight only: the load is today's bodyweight, so progress is reps
     if(dl)return {w:abw,r:Math.max(1,Math.round(lp.r*0.7))};
-    const r=(lp.tot*(1+(lp.r+lp.rir)/30)/abw-1)*30-t;return {w:abw,r:Math.max(1,Math.round(r))};
+    const r=(est(lp)/abw-1)*30-t;return {w:abw,...fin(r)};
   }
   if(dl){const T=e.bw?lp.tot:lp.tot*0.75;const w=e.bw?T:Math.max(side||asst||plus?0:inc,roundTo(toW(T),inc));return {w,r:Math.max(1,Math.min(e.hi,Math.round(lp.r*(e.bw?0.7:1))))}}
-  const e1=lp.tot*(1+(lp.r+lp.rir)/30);
+  const e1=est(lp);
   let T=lp.tot,r=(e1/T-1)*30-t,n=0;
   while(r>e.hi+0.49&&n<8&&ok(toW(T+step))){T+=step;r=(e1/T-1)*30-t;n++}
   n=0;while(r<e.lo-1.5&&n<3&&ok(toW(T-step))){T-=step;r=(e1/T-1)*30-t;n++}
-  return {w:Math.round(toW(T)*4)/4,r:Math.max(1,Math.round(r))};   // 0.25 grid keeps suggestions loadable after a unit switch
+  return {w:Math.round(toW(T)*4)/4,...fin(r)};   // 0.25 grid keeps suggestions loadable after a unit switch
 }
 /* Set change for a muscle from soreness (this session's prompt) plus last session's pump and volume ratings. */
 /* Muscle priorities, per mesocycle (m.prio[muscle], default 'grow'). Grow is the standard rule set.
@@ -861,7 +875,7 @@ function distribute(bases,delta){
 function resize(x,n,pl){
   const done=x.sets.filter(t=>t.done).length;n=Math.max(n,done);
   while(x.sets.length<n){const l=x.sets[x.sets.length-1]||{w:null,r:10,pw:null,pr:10},q=pl&&pl(x.sets.length);
-    x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,done:false}:{w:l.pw??l.w,r:l.pr??l.r,pw:l.pw??l.w,pr:l.pr??l.r,done:false,...(l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l.ty))}
+    x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,...(q.prf!=null?{prf:q.prf}:{}),done:false}:{w:l.pw??l.w,r:l.pr??l.r,pw:l.pw??l.w,pr:l.pr??l.r,done:false,...(l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l.ty))}
   while(x.sets.length>n){let i=-1;for(let k=x.sets.length-1;k>=0;k--)if(!x.sets[k].done){i=k;break}if(i<0)break;x.sets.splice(i,1)}
   x.planned=n;
 }
@@ -884,11 +898,11 @@ function makeEx(m,wk,di,exId,tplSets){
   const mode=loadMode(e),p=planLoad(e,lp,t,dl,mode);
   // Per-set plans: set i follows set i from last time; a set with nothing to go on follows the nearest earlier one,
   // else the best set.
-  const ps=lp&&lp.sets?lp.sets.map(q=>q&&planLoad(e,{tot:q.tot,r:q.r,rir:lp.rir},t,dl,mode)):[];
+  const ps=lp&&lp.sets?lp.sets.map(q=>q&&planLoad(e,{...q,rir:lp.rir},t,dl,mode)):[];
   const planAt=i=>{const j=srcIdx(ps,i);return j<0?p:ps[j]};
   // Set types carry over to the same set position from last time.
   const types=prev?prev.x.sets.map(t=>t.ty):[];
-  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>{const q=planAt(i);return withType({w:q.w,r:q.r,pw:q.w,pr:q.r,done:false},types[i])})};
+  return {exId,note:'',side:mode.side,bar:mode.bar,...(mode.abw!=null?{abw:mode.abw}:{}),...(mode.assist?{assist:true}:{}),...(mode.plus?{plus:true}:{}),...(mode.bwo?{bwo:true}:{}),base,planned:base,joint:null,swap,sets:Array.from({length:base},(_,i)=>{const q=planAt(i);return withType({w:q.w,r:q.r,pw:q.w,pr:q.r,...(q.rf!=null?{prf:q.rf}:{}),done:false},types[i])})};
 }
 /* Recalculate plan: re-plans the unlogged sets of a session exercise from the latest history, as a fresh workout
    would. Logged sets, the set count and set types stay. Weights are converted into this exercise's own weight entry
@@ -897,7 +911,7 @@ function makeEx(m,wk,di,exId,tplSets){
 function planSet(m,s,x,i,f){
   f=f||makeEx(m,s.wk,s.di,x.exId,Math.max(i+1,x.sets.length));if(x.ivl||!f.sets.length)return null;
   const q=f.sets[Math.min(i,f.sets.length-1)],toEntered=T=>x.assist?(x.abw||0)-T:x.plus?T-(x.abw||0):x.side?(T-(x.bar||0))/2:T;
-  return {w:q.w==null?null:x.bwo?x.abw:Math.round(toEntered(totOf(f,q.w))*4)/4,r:q.r};
+  return {w:q.w==null?null:x.bwo?x.abw:Math.round(toEntered(totOf(f,q.w))*4)/4,r:q.r,prf:q.prf};
 }
 // Planner for sets added to x (soreness/volume changes, Add set): each new set gets its own position's plan.
 const setPlanner=(m,s,x)=>{let f=null;return i=>{f=f||makeEx(m,s.wk,s.di,x.exId,Math.max(i+1,x.sets.length));return planSet(m,s,x,i,f)}};
@@ -908,7 +922,7 @@ function replanEx(m,s,x){
   let n=0;
   x.sets.forEach((t,i)=>{if(t.done)return;const q=planSet(m,s,x,i,f);
     if(t.w!==q.w||t.r!==q.r||t.pw!==q.w||t.pr!==q.r)n++;
-    t.w=q.w;t.r=q.r;t.pw=q.w;t.pr=q.r;delete t.pr0;delete t.pb;delete t.pe1});
+    t.w=q.w;t.r=q.r;t.pw=q.w;t.pr=q.r;if(q.prf!=null)t.prf=q.prf;else delete t.prf;delete t.pr0;delete t.pb;delete t.pe1});
   if(f.swap)x.swap=true;
   return n;
 }
@@ -931,8 +945,8 @@ function explainEx(m,s,x){
     from:lp&&lp.from,best:lp?{tot:lp.tot,r:lp.r,rir:lp.rir}:null,abw:x.abw??null,sets:[]};
   if(x.ivl||!lp)return out;
   const mode=loadMode(e),a=lp.sets||[];
-  x.sets.forEach((q,i)=>{const j=srcIdx(a,i),src=j<0?{tot:lp.tot,r:lp.r}:a[j],e1=src.tot*(1+(src.r+lp.rir)/30),pl=planLoad(e,{tot:src.tot,r:src.r,rir:lp.rir},t,dl,mode);
-    out.sets.push({i,j,src,e1:Math.round(e1*10)/10,plan:pl,pw:q.pw,pr:q.pr,done:!!q.done,w:q.w,r:q.r})});
+  x.sets.forEach((q,i)=>{const j=srcIdx(a,i),src=j<0?{tot:lp.tot,r:lp.r,pr:lp.pr,prf:lp.prf,ptot:lp.ptot}:a[j],slow=slowMode(mode),e1=slow?src.tot*(1+(slowReps(src)+(lp.rir+t)/2)/30):src.tot*(1+(src.r+lp.rir)/30),pl=planLoad(e,{...src,rir:lp.rir},t,dl,mode);
+    out.sets.push({i,j,src,slow,e1:Math.round(e1*10)/10,plan:pl,pw:q.pw,pr:q.pr,done:!!q.done,w:q.w,r:q.r})});
   return out;
 }
 /* Weight typed over on an unlogged set: re-plan its reps so the set keeps the planned estimated max at the new weight
@@ -1391,7 +1405,7 @@ function viewMore(){
   h+=soreStatus();
   h+=accountCard();
   h+='<div class="sec">Backup</div><div class="card" style="margin-top:0"><p id="status"></p><div class="acts"><button class="btn" data-act="export">Export backup</button><label class="btn" for="imp" style="cursor:pointer">Import backup</label><input id="imp" type="file" accept=".json,application/json" hidden data-chg="import"></div></div>';
-  h+='<div class="sec">How adjustments work</div><div class="card rules" style="margin-top:0"><p><b>Reps left in the tank.</b> How many more reps you could have done at the end of each set. Week 1 leaves 3 in the tank, and it drops each week until 0 (all out). With the test-week option, week 1 goes to 0–1 to measure your strength, then 2 drops to 0. The last week is a recovery week: 5 left in the tank, half the sets and lighter weight.</p><p><b>Weight and reps.</b> Progress is compared on total weight (bar plus both ends), even when you log one end. Each exercise uses your best logged set from last time and an Epley estimate of your max. It holds the weight and adds reps as the reps left in the tank drop, and steps the weight up by that exercise’s increment once reps would pass the top of its range.</p><p><b>Sets.</b> Each workout day is planned from that same day last week, so one day never changes another. Your pump and volume answers can add or remove sets there, and being still sore when you start can take a set off (it never adds). Each exercise changes by 1 set at most per week. Added sets go to the exercise with the fewest, removed sets come from the one with the most.</p><p><b>Joint pain.</b> Moderate or severe pain on an exercise takes one set off it next time. Severe also flags it for replacement.</p><p>These are simple rules written for this app. They are not any other app’s algorithm.</p></div>';
+  h+='<div class="sec">How adjustments work</div><div class="card rules" style="margin-top:0"><p><b>Reps left in the tank.</b> How many more reps you could have done at the end of each set. Week 1 leaves 3 in the tank, and it drops each week until 0 (all out). With the test-week option, week 1 goes to 0–1 to measure your strength, then 2 drops to 0. The last week is a recovery week: 5 left in the tank, half the sets and lighter weight.</p><p><b>Weight and reps.</b> Progress is compared on total weight (bar plus both ends), even when you log one end. Each exercise uses your best logged set from last time and an Epley estimate of your max. It holds the weight and adds reps as the reps left in the tank drop, and steps the weight up by that exercise’s increment once reps would pass the top of its range. Bodyweight exercises (pull-ups, dips, weighted and assisted versions) go at half speed, so their reps climb about 1 every other week.</p><p><b>Sets.</b> Each workout day is planned from that same day last week, so one day never changes another. Your pump and volume answers can add or remove sets there, and being still sore when you start can take a set off (it never adds). Each exercise changes by 1 set at most per week. Added sets go to the exercise with the fewest, removed sets come from the one with the most.</p><p><b>Joint pain.</b> Moderate or severe pain on an exercise takes one set off it next time. Severe also flags it for replacement.</p><p>These are simple rules written for this app. They are not any other app’s algorithm.</p></div>';
   h+='<div class="sec">Danger zone</div><button class="li" data-act="resetall" style="color:var(--bad)"><b>Erase all data</b></button></div>';
   return h;
 }
@@ -1860,7 +1874,7 @@ function nerdSheet(){
   let h='<h2>Behind the scenes</h2><div class="nerd">';
   h+='<p><b>Week '+s.wk+' of '+m.weeks+', day '+(s.di+1)+'.</b> '+(m.quick?'Quick workout: no target, no set changes; each exercise repeats its last best set.':isDl(m,s.wk)?'Recovery week: 5 reps left in the tank, sets halved, weight at 75%, no set changes.':(m.style==='test'?'Test-week ladder (0–1, then 2 down to 0)':'Standard ladder (3 down to 0 over '+acc+' weeks)')+' → <b>'+tankLabel(rir)+'</b>.')+'</p>';
   h+='<p>Bodyweight on file: <b class="nm">'+fmt(S.prefs.bw)+' '+u+'</b>. Workout saved: <b>'+(m.sessions[s.key]?'yes (plan frozen; use Recalculate plan to refresh)':'no (still re-planned every time it opens)')+'</b>.</p>';
-  h+='<p>Each set: last time’s same set → est. max = load × (1 + (reps + reps left in the tank) ÷ 30) → reps that leave '+(m.quick?'the same reps in the tank':'today’s reps in the tank')+' at that load; the weight steps up when reps go past the top of the range and down when they fall well below it.</p>';
+  h+='<p>Each set: last time’s same set → est. max = load × (1 + (reps + reps left in the tank) ÷ 30) → reps that leave '+(m.quick?'the same reps in the tank':'today’s reps in the tank')+' at that load; the weight steps up when reps go past the top of the range and down when they fall well below it. Bodyweight types go at half speed: each step down in reps left in the tank adds half a rep, reps done above the plan count half, and reps round down while the half rep is kept for next time.</p>';
   const mus=[...new Set(s.exs.map(muscleOf).filter(Boolean))];
   for(const mu of mus){
     const em=explainMuscle(m,s,mu),mn=esc(MUS[mu].name);
@@ -1881,7 +1895,7 @@ function nerdSheet(){
       const tl=(x.side?'total on the bar':x.plus||x.assist||x.bwo?'total load incl. bodyweight':'');
       h+='<p>Numbers from: <b>'+sref(ee.from,m)+'</b>, that week’s target '+rirLabel(ee.best.rir)+' in the tank. Best set '+fmt(ee.best.tot)+'×'+ee.best.r+(tl?' ('+tl+')':'')+'. Range '+e.lo+'–'+e.hi+'.</p>';
       for(const q of ee.sets){
-        h+='<span class="nrow'+(q.done?' done':'')+'">Set '+(q.i+1)+': '+(q.j<0?'best set ':q.j!==q.i?'set '+(q.j+1)+' ':'')+fmt(q.src.tot)+'×'+q.src.r+' → est. max '+fmt(q.e1)+' → plan '+fmt(q.plan.w)+'×'+q.plan.r+(q.pw!==q.plan.w||q.pr!==q.plan.r?' · showing '+fmt(q.pw)+'×'+q.pr:'')+(q.done?' · logged '+fmt(q.w)+'×'+q.r:'')+'</span>'}
+        h+='<span class="nrow'+(q.done?' done':'')+'">Set '+(q.i+1)+': '+(q.j<0?'best set ':q.j!==q.i?'set '+(q.j+1)+' ':'')+fmt(q.src.tot)+'×'+q.src.r+' → est. max '+fmt(q.e1)+(q.slow?' (half speed)':'')+' → plan '+fmt(q.plan.w)+'×'+q.plan.r+(q.plan.rf!=null&&q.plan.rf!==q.plan.r?' ('+q.plan.rf+')':'')+(q.pw!==q.plan.w||q.pr!==q.plan.r?' · showing '+fmt(q.pw)+'×'+q.pr:'')+(q.done?' · logged '+fmt(q.w)+'×'+q.r:'')+'</span>'}
       if(ee.abw!=null)h+='<p>Bodyweight used for this exercise: <b class="nm">'+fmt(ee.abw)+' '+u+'</b>.</p>';
     });
   }
@@ -2099,7 +2113,7 @@ formset(el){const s=curSession(),x=s.exs[ui.formEi];if(x){x.form=+el.dataset.v;c
 xform(){askForm(ui.ei)},
 xfb(){const s=curSession(),x=s.exs[ui.ei];postSheet(s,muscleOf(x),true)},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
-xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1],q=planSet(meso(),s,x,x.sets.length);x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,done:false}:{w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false,...(l&&l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
+xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1],q=planSet(meso(),s,x,x.sets.length);x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,...(q.prf!=null?{prf:q.prf}:{}),done:false}:{w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false,...(l&&l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xreplan(){const s=curSession(),m=meso(),x=s.exs[ui.ei],n=replanEx(m,s,x);matchTargets(x);if(n)commit(s);closeSheet();render();toast(n?'Plan recalculated: '+n+' set'+(n>1?'s':'')+' changed':'Plan is already up to date')},
 xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
 xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();

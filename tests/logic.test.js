@@ -374,7 +374,17 @@ eq([1, 2, 3, 4, 5, 6, 7].map(n => T.blankDays(n).length), [1, 2, 3, 4, 5, 6, 7],
   eq(T.planLoad(wp, null, 3, false, mp).w, 0, 'first time starts with nothing added');
   eq(T.planLoad(wp, { tot: 225, r: 10, rir: 2 }, 2, false, mp).w, 25, 'holds the same total');
   const mb = T.loadMode(pu);
-  eq(T.planLoad(pu, { tot: 200, r: 8, rir: 3 }, 2, false, mb), { w: 200, r: 9 }, 'bodyweight-only progresses by reps, never adds weight');
+  eq(T.planLoad(pu, { tot: 200, r: 8, rir: 3 }, 2, false, mb), { w: 200, r: 8, rf: 8.5 }, 'bodyweight-only progresses by reps (half speed), never adds weight');
+  // half speed: hitting the plan each week gives +1 rep every other week
+  let lp = { tot: 200, r: 8, rir: 3, pr: 8, ptot: 200 }, got = [];
+  for (const t of [2, 1, 0]) { const q = T.planLoad(pu, lp, t, false, mb); got.push(q.r); lp = { tot: 200, r: q.r, rir: t, pr: q.r, prf: q.rf, ptot: 200 }; }
+  eq(got, [8, 9, 9], 'bodyweight: 8 at 3 left → 8, 9, 9 as the tank drops 2, 1, 0 (half a rep per step)');
+  eq(T.planLoad(pu, { tot: 200, r: 10, rir: 3, pr: 8, ptot: 200 }, 2, false, mb).r, 9, 'reps above the plan count half: 10 done vs 8 planned → 9 + half step');
+  eq(T.planLoad(pu, { tot: 200, r: 6, rir: 3, pr: 8, ptot: 200 }, 2, false, mb).r, 6, 'reps below the plan count fully');
+  eq(T.planLoad(pu, { tot: 200, r: 8, rir: 2, pr: 8, prf: 9.5, ptot: 200 }, 1, false, mb).r, 8, 'a stale hidden half rep (does not match the shown plan) is ignored');
+  eq(T.planLoad(wp, { tot: 225, r: 8, rir: 3, pr: 8, ptot: 225 }, 2, false, mp), { w: 25, r: 8, rf: 8.5 }, 'weighted pull-ups use half speed too');
+  const bench = T.ex('bench-press-wide-grip');
+  eq(T.planLoad(bench, { tot: 135, r: 8, rir: 3, pr: 8, ptot: 135 }, 2, false, T.loadMode(bench)).r, 9, 'other exercises keep the normal speed');
   eq(T.planLoad(pu, { tot: 200, r: 14, rir: 0 }, 0, false, mb).w, 200, 'even past the top of the range');
   // A session with all three kinds, then bodyweight goes up 5.
   const s = { exs: [
