@@ -1287,11 +1287,18 @@ function gotoPending(){const m=meso();if(!m)return;const p=nextPending(m);ui.wk=
 function autoSore(){
   if(ui.tab!=='workout')return;const m=meso();if(!m||m.quick)return;const s=curSession();if(!s||s.done||isDl(m,s.wk))return;
   const p=nextPending(m);if(p.wk!==s.wk||p.di!==s.di)return;
+  // Already trained today: this is a preview of a later workout, so today's soreness must not be applied to it (it gets
+  // asked again on the day). Auto-applied soreness is also re-checked until that muscle's first set is logged, so a
+  // later check-in replaces it; answers given by hand are left alone.
+  const t=today(),preview=Object.values(m.sessions).some(z=>z!==s&&z.done&&!z.skipped&&z.date===t);
   const due=new Set(dueSoreness().map(z=>z.id)),hit=[];let set=false;
   for(const mu of new Set(s.exs.filter(x=>!x.ivl).map(muscleOf))){
-    if(!mu||due.has(mu)||muscleHasDone(s,mu))continue;const fb=s.fb[mu]||{};
-    if(fb.sor!=null||fb.skip||!prevMuscle(m,mu,ord(s)))continue;
-    const dv=deriveSoreness(mu);if(dv==null)continue;
+    if(!mu||muscleHasDone(s,mu))continue;const fb=s.fb[mu]||{};
+    if(fb.skip||(fb.sor!=null&&!fb.auto)||!prevMuscle(m,mu,ord(s)))continue;
+    const dv=preview||due.has(mu)?null:deriveSoreness(mu);
+    if(dv==null){if(!fb.auto)continue;   // undo a stale auto answer: back to the planned sets until the check-in
+      delete fb.sor;delete fb.auto;delete fb.delta;s.exs.forEach(x=>{if(!x.ivl&&muscleOf(x)===mu)resize(x,x.base||x.planned||x.sets.length,setPlanner(m,s,x))});set=true;continue}
+    if(dv===fb.sor)continue;
     s.fb[mu]=fb;fb.sor=dv;fb.auto=true;set=true;const before=s.exs.reduce((a,x)=>a+x.sets.length,0);applyMuscle(m,s,mu);
     const d=s.exs.reduce((a,x)=>a+x.sets.length,0)-before;if(d)hit.push(MUS[mu].name+' '+(d>0?'+':'−')+Math.abs(d)+' set'+(Math.abs(d)>1?'s':''))}
   if(set)commit(s);
