@@ -1550,6 +1550,12 @@ function toggleSet(ei,si){
     if(x.form==null&&x.sets.every(t=>t.done)){ui.pq=(ui.pq||[]).concat(after);askForm(ei)}else after();
   }else{t.done=false;commit(s);render()}
 }
+/* After sets or an exercise are removed: if that leaves every remaining set done, ask what ticking the last set would
+   have asked (form check for the exercise, then the muscle's pump/volume). Queued in ui.pq, so it waits for open sheets. */
+function afterRemove(s,ei,mu){
+  ui.pq=(ui.pq||[]).concat(()=>{if(PRAC||curSession()!==s||!mu)return;const x=ei!=null?s.exs[ei]:null,post=()=>maybePost(s,mu);
+    if(x&&muscleOf(x)===mu&&x.form==null&&x.sets.length&&x.sets.every(t=>t.done)){ui.pq=(ui.pq||[]).concat(post);askForm(ei)}else post()});
+  pqNext()}
 // Asked when the last set of an exercise is ticked. Muscle feedback waits in ui.pq until this closes, however it closes.
 function askForm(ei){const x=curSession().exs[ei];ui.formEi=ei;
   sheet('<h2>Form check</h2><div class="q"><b>How was your form?</b><span>'+esc(ex(x.exId).name)+'</span><div class="opts">'+FORM_LBL.map((t,k)=>'<button class="opt'+(x.form===k?' on':'')+'" data-act="formset" data-v="'+k+'">'+t+'</button>').join('')+'</div></div>')}
@@ -1563,8 +1569,8 @@ function maybeSoreness(s,mu,dv){
 }
 function maybePost(s,mu){if(meso().quick)return;
   const fb=s.fb[mu]=s.fb[mu]||{};
-  const xs=s.exs.filter(x=>muscleOf(x)===mu);
-  if(fb.post||!xs.length||!xs.every(x=>x.sets.length&&x.sets.every(t=>t.done)))return;
+  const xs=s.exs.filter(x=>muscleOf(x)===mu&&x.sets.length);   // an exercise with every set removed doesn't hold it up
+  if(fb.post||!xs.length||!xs.every(x=>x.sets.every(t=>t.done)))return;
   postSheet(s,mu,false);
 }
 // Joint pain per exercise, then pump and volume for the muscle. edit=true reopens it with the saved answers picked.
@@ -2126,10 +2132,11 @@ xfb(){const s=curSession(),x=s.exs[ui.ei];postSheet(s,muscleOf(x),true)},
 xjsave(el){const s=curSession();s.exs[ui.ei].joint=+el.dataset.v;commit(s);closeSheet();toast('Joint pain noted');render()},
 xadd(){const s=curSession(),x=s.exs[ui.ei],l=x.sets[x.sets.length-1],q=planSet(meso(),s,x,x.sets.length);x.sets.push(withType(q?{w:q.w,r:q.r,pw:q.w,pr:q.r,...(q.prf!=null?{prf:q.prf}:{}),done:false}:{w:l?l.pw??l.w:null,r:l?l.pr??l.r:10,pw:l?l.pw??l.w:null,pr:l?l.pr??l.r:10,done:false,...(l&&l.pr0!=null?{pr0:l.pr0,pb:l.pb}:{})},l&&l.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
 xreplan(){const s=curSession(),m=meso(),x=s.exs[ui.ei],n=replanEx(m,s,x);matchTargets(x);if(n)commit(s);closeSheet();render();toast(n?'Plan recalculated: '+n+' set'+(n>1?'s':'')+' changed':'Plan is already up to date')},
-xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render()},
-xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId;s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
+xskip(){const s=curSession(),x=s.exs[ui.ei];x.sets=x.sets.filter(t=>t.done);commit(s);closeSheet();render();afterRemove(s,ui.ei,muscleOf(x))},
+xrm(){const s=curSession(),m=meso(),ei=ui.ei,id=s.exs[ei].exId,mu=muscleOf(s.exs[ei]);s.exs.splice(ei,1);syncDay(m,s);commit(s);closeSheet();render();
   if(!m.blank){ui.rmd={ei,id};   // planned day: ask whether it also leaves later weeks, like Replace does
-    sheet('<h2>Removed</h2><p><b>'+esc(ex(id).name)+'</b> is out of this workout.</p><p style="color:var(--muted)">Take it out of '+esc(m.days[s.di].name)+' for the rest of this plan too?</p><div class="foot"><button class="btn" data-act="rmgo" data-v="day">Just today</button><button class="btn pri" data-act="rmgo" data-v="rest">Rest of this plan</button></div>')}},
+    sheet('<h2>Removed</h2><p><b>'+esc(ex(id).name)+'</b> is out of this workout.</p><p style="color:var(--muted)">Take it out of '+esc(m.days[s.di].name)+' for the rest of this plan too?</p><div class="foot"><button class="btn" data-act="rmgo" data-v="day">Just today</button><button class="btn pri" data-act="rmgo" data-v="rest">Rest of this plan</button></div>')}
+  afterRemove(s,null,mu)},   // waits for the Removed sheet
 rmgo(el){const m=meso(),s=curSession(),r=ui.rmd;
   if(el.dataset.v==='rest'&&removeItem(m.days[s.di].items,r.ei,r.id)){dropUntouched(m,s.di,s.wk);commit(s);toast('Removed from '+m.days[s.di].name+' for the rest of this plan')}
   closeSheet();render()},
@@ -2140,7 +2147,7 @@ stype(el){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si],v=el.dataset.v;del
   if(v==='match'&&ui.si===0)toast('Set 1 has nothing to match, so it runs as a regular target');
   matchTargets(x);commit(s);closeSheet();render()},
 sdup(){const s=curSession(),x=s.exs[ui.ei],t=x.sets[ui.si];x.sets.splice(ui.si+1,0,withType({w:t.w,r:t.r,pw:t.pw,pr:t.pr,done:false},t.ty));x.planned=x.sets.length;commit(s);closeSheet();render()},
-srm(){const s=curSession(),x=s.exs[ui.ei];x.sets.splice(ui.si,1);x.planned=x.sets.length;if(!x.sets.length)s.exs.splice(ui.ei,1);commit(s);closeSheet();render()},
+srm(){const s=curSession(),x=s.exs[ui.ei],mu=muscleOf(x);x.sets.splice(ui.si,1);x.planned=x.sets.length;const gone=!x.sets.length;if(gone)s.exs.splice(ui.ei,1);commit(s);closeSheet();render();afterRemove(s,gone?null:ui.ei,mu)},
 exhist(el){const x=curSession().exs[ctx(el).ei];if(x.ivl){ivlHist(x.exId);return}const h=exHistory(x.exId).reverse().slice(0,8);
   sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+(h.length?'<div class="hist">'+h.map(r=>'<div class="h"><b>'+esc(r.date)+'</b> <small>'+esc(r.meso)+(r.quick?'':' · week '+r.wk+histDay(r))+(r.bw>0?' · bodyweight '+fmt(r.bw)+' '+unit():'')+esc(formTag(r.form))+'</small><div class="num">'+r.sets.map(t=>fmt(t.w)+(t.side?'/end':'')+' × '+t.r).join('  ·  ')+'</div></div>').join('')+'</div>':'<div class="empty">No logged sets yet.</div>'))},
 exchart(el){const x=curSession().exs[ctx(el).ei];ui.chart=null;const c=lineChart(chartPts(x.exId));sheet('<h2>'+esc(ex(x.exId).name)+'</h2>'+c+'<p style="color:var(--muted);font-size:14px">Estimated one-rep max from your best set each session, in '+unit()+'. Touch the line for details.</p>');bindChart()},
